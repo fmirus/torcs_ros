@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="param_file" default="$(find torcs_img_publisher)/config/torcs_img_publisher.yaml"/>
+  <node pkg="torcs_img_publisher" type="torcs_img_publisher_node" name="torcs_img_publisher_node" output="screen">
+    <rosparam file="$(arg param_file)" command="load"/>
+  </node>
+</launch>
+
