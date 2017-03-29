@@ -14,6 +14,7 @@ using namespace cv;
 
 // ROS includes
 #include <ros/ros.h>
+#include <std_msgs/Header.h>
 #include <sensor_msgs/Image.h>
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
