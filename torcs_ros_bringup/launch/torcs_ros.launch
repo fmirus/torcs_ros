@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!--arg name="unified_laser_scan" default="false"/-->
+
+  <!-- broadcast world and base_link frames -->
+  <node pkg="tf" type="static_transform_publisher" name="base_link_broadcaster" args="1 0 0 0 0 0 1 world base_link 100" />
+  <!-- start torcs image publisher -->
+  <include file="$(find torcs_img_publisher)/launch/torcs_img_publisher.xml">
+  </include>
+  <!-- start torcs start rviz for visualization -->
+  <node pkg="rviz" type="rviz" name="rviz" args="-d $(find torcs_ros_bringup)/config/torcs.rviz" respawn="false" output="screen" />
+
+
+</launch>
