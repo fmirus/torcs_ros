@@ -45,6 +45,8 @@ private:
   IplImage* screenRGB_;
   IplImage* resizeRGB_;
 
+  std_msgs::Header header_;
+
   config_struct config_;
 
 public:
@@ -59,6 +61,8 @@ public:
   image_transport::Publisher image_publisher_;
 
   void update();
+
+  double getLoopRate();
 
   void getParams();
 

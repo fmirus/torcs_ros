@@ -37,6 +37,7 @@ TORCSImgPublisherNode::TORCSImgPublisherNode()
   screenRGB_ = cvCreateImage(cvSize(image_width,image_height),IPL_DEPTH_8U,3);
   resizeRGB_ = cvCreateImage(cvSize(config_.resize_width,config_.resize_height),IPL_DEPTH_8U,3);
 
+  header_ = std_msgs::Header();
   // publisher
   image_publisher_ = it_.advertise("/torcs/image", 1);
 
@@ -92,8 +93,10 @@ void TORCSImgPublisherNode::update()
     // Update GUI Window
     // cv::imshow("TORCS Image", img);
     // cv::waitKey(3);
+
+    header_.stamp = ros::Time::now();
   
-    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img).toImageMsg();
+    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(header_, "bgr8", img).toImageMsg();
     
     image_publisher_.publish(msg);
 
@@ -101,13 +104,18 @@ void TORCSImgPublisherNode::update()
   }
 }
 
+double TORCSImgPublisherNode::getLoopRate()
+{
+  return config_.loop_rate;
+}
+
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "torcs_img_publisher_node");
-  TORCSImgPublisherNode my_publsiher;
-  ros::Rate loop_rate(100); // Hz
-  while(my_publsiher.nh_.ok()){
-    my_publsiher.update();
+  TORCSImgPublisherNode my_publisher;
+  ros::Rate loop_rate(my_publisher.getLoopRate()); // Hz
+  while(my_publisher.nh_.ok()){
+    my_publisher.update();
     ros::spinOnce();
     loop_rate.sleep();
   }
