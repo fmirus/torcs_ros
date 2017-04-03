@@ -51,27 +51,27 @@ TORCSImgPublisherNode::~TORCSImgPublisherNode(){
 void TORCSImgPublisherNode::getParams()
 {
   if(!pnh_.hasParam("loop_rate"))
-    {
-      ROS_WARN("No parameter loop_rate on parameter server. Using default value [10.0 Hz].");
-    }
+  {
+    ROS_WARN("No parameter loop_rate on parameter server. Using default value [10.0 Hz].");
+  }
   pnh_.param("loop_rate", config_.loop_rate, (double)10.0);
 
   if(!pnh_.hasParam("resize_width"))
-    {
-      ROS_WARN("No parameter resize_width on parameter server. Using default value [640 px].");
-    }
+  {
+    ROS_WARN("No parameter resize_width on parameter server. Using default value [640 px].");
+  }
   pnh_.param("resize_width", config_.resize_width, (int)640);
 
   if(!pnh_.hasParam("resize_height"))
-    {
-      ROS_WARN("No parameter resize_height on parameter server. Using default value [480 px].");
-    }
+  {
+    ROS_WARN("No parameter resize_height on parameter server. Using default value [480 px].");
+  }
   pnh_.param("resize_height", config_.resize_height, (int)480);
 
   if(!pnh_.hasParam("paused"))
-    {
-      ROS_WARN("No parameter paused on parameter server. Using default value [1].");
-    }
+  {
+    ROS_WARN("No parameter paused on parameter server. Using default value [1].");
+  }
   pnh_.param("paused", config_.paused, (int)1);
 }
 
