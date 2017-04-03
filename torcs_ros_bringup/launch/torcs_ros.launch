@@ -1,13 +1,20 @@
 <?xml version="1.0"?>
 <launch>
 
-  <!--arg name="unified_laser_scan" default="false"/-->
+  <arg name="driver" default="true"/>
 
   <!-- broadcast world and base_link frames -->
   <node pkg="tf" type="static_transform_publisher" name="base_link_broadcaster" args="1 0 0 0 0 0 1 world base_link 100" />
+
+  <!-- start torcs ros client -->
+  <include file="$(find torcs_ros_client)/launch/torcs_ros_client.xml"/>
+
   <!-- start torcs image publisher -->
-  <include file="$(find torcs_img_publisher)/launch/torcs_img_publisher.xml">
-  </include>
+  <include file="$(find torcs_img_publisher)/launch/torcs_img_publisher.xml"/>
+
+  <!-- start torcs ros driver -->
+  <include file="$(find torcs_ros_drive_ctrl)/launch/torcs_ros_drive_ctrl.xml"  if="$(arg driver)"/>
+
   <!-- start torcs start rviz for visualization -->
   <node pkg="rviz" type="rviz" name="rviz" args="-d $(find torcs_ros_bringup)/config/torcs.rviz" respawn="false" output="screen" />
 
