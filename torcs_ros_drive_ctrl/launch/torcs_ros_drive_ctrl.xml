@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="param_file" default="$(find torcs_ros_drive_ctrl)/config/torcs_ros_drive_ctrl.yaml"/>
+  <node pkg="torcs_ros_drive_ctrl" type="torcs_ros_drive_ctrl_node" name="torcs_ros_drive_ctrl_node" output="screen">
+    <remap from="torcs_ctrl_in" to="torcs_ctrl_out"/>
+    <remap from="torcs_ctrl_out" to="torcs_ctrl_in"/>
+    <remap from="torcs_sensors_in" to="torcs_sensors_out"/>
+    <rosparam file="$(arg param_file)" command="load"/>
+  </node>
+</launch>
+

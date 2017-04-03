@@ -1,0 +1,41 @@
+# torcs ros drive ctrl params
+
+gearUp: [5000,6000,6000,6500,7000,0]
+gearDown: [0,2500,3000,3000,3500,3500]
+
+# Stuck constants
+
+stuckTime : 25
+stuckAngle : 0.523598775 #PI/6
+# Accel and Brake Constants
+
+maxSpeedDist: 70
+maxSpeed: 150
+
+# Steering constants
+
+steerLock: 0.366519 
+steerSensitivityOffset: 80.0
+wheelSensitivityCoeff: 1
+
+# ABS Filter Constants 
+
+wheelRadius: [0.3306,0.3306,0.3276,0.3276]
+absSlip: 2.0
+absRange: 3.0
+absMinSpeed: 3.0
+
+# Clutch constants 
+
+clutchMax: 0.5
+clutchDelta: 0.05
+clutchRange: 0.82
+clutchDeltaTime: 0.02
+clutchDeltaRaced: 10
+clutchDec: 0.01
+clutchMaxModifier: 1.3
+clutchMaxTime: 1.5
+
+stage: 3 # 0=WARMUP, 1=QUALIFYING, 2=RACE, 3=UNKNOWN
+
+loop_rate: 100.0
