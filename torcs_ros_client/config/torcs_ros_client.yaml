@@ -1,0 +1,14 @@
+#torcs_ros_client config-parameters
+
+host_name: "localhost"
+server_port: 3001
+id: "SCR"
+max_episodes: 0
+max_steps: 0
+track_name: "unknown"
+stage: 3 # 0=WARMUP, 1=QUALIFYING, 2=RACE, 3=UNKNOWN
+num_opponents_ranges: 36
+num_track_ranges: 19
+num_focus_ranges: 5
+
+loop_rate: 100.0

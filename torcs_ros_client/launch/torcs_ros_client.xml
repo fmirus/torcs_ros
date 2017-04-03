@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="param_file" default="$(find torcs_ros_client)/config/torcs_ros_client.yaml"/>
+  <node pkg="torcs_ros_client" type="torcs_ros_client_node" name="torcs_ros_client_node" output="screen">
+    <rosparam file="$(arg param_file)" command="load"/>
+  </node>
+</launch>
+
