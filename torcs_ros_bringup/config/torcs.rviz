@@ -26,7 +26,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: TrackPos
+    SyncSource: LaserTrack
 Visualization Manager:
   Class: ""
   Displays:
@@ -66,7 +66,7 @@ Visualization Manager:
       Max Intensity: 4096
       Min Color: 0; 0; 0
       Min Intensity: 0
-      Name: TrackPos
+      Name: LaserTrack
       Position Transformer: XYZ
       Queue Size: 10
       Selectable: true
@@ -74,6 +74,36 @@ Visualization Manager:
       Size (m): 0.00999999978
       Style: Points
       Topic: /torcs_track
+      Unreliable: false
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: true
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz/LaserScan
+      Color: 255; 0; 0
+      Color Transformer: FlatColor
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Max Intensity: 4096
+      Min Color: 0; 0; 0
+      Min Intensity: 0
+      Name: LaserOpponents
+      Position Transformer: XYZ
+      Queue Size: 10
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.00999999978
+      Style: Points
+      Topic: /torcs_opponents
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
@@ -140,7 +170,7 @@ Visualization Manager:
   Value: true
   Views:
     Current:
-      Angle: -1.61999869
+      Angle: -1.50499964
       Class: rviz/TopDownOrtho
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
@@ -149,11 +179,11 @@ Visualization Manager:
         Value: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Scale: 3.65213084
+      Scale: 3.23961043
       Target Frame: <Fixed Frame>
       Value: TopDownOrtho (rviz)
-      X: 91.3372116
-      Y: -28.3145313
+      X: 127.028336
+      Y: 6.80303144
     Saved: ~
 Window Geometry:
   Displays:
