@@ -399,7 +399,7 @@ void TORCSROSClient::update()
      * Compute The Action to send to the solorace sever
      **************************************************/
 
-    if ( (++currentStep_) != maxSteps_)
+    if ( (++currentStep_) != config_.max_steps)
     {
       // string action = d.drive(string(buf));
       // store sensor and ctrl data in ROS messages

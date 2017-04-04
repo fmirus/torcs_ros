@@ -70,7 +70,6 @@ private:
   unsigned int serverPort_;
   char id_[1000];
   unsigned int maxEpisodes_;
-  unsigned int maxSteps_;
   char trackName_[1000];
   // BaseDriver::tstage stage_;
 
