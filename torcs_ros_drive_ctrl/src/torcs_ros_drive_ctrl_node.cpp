@@ -71,6 +71,7 @@ void TORCSROSDriveCtrl::drive()
     clutching(clutch);
 
     // build a torcs_ctrl message and publish it
+    torcs_ctrl_out_.header.stamp = ros::Time::now();
     torcs_ctrl_out_.accel = 1.0;
     torcs_ctrl_out_.brake = 0.0;
     torcs_ctrl_out_.gear = gear;
@@ -121,6 +122,7 @@ void TORCSROSDriveCtrl::drive()
     clutching(clutch);
 
     // build a torcs_ctrl message and publish it
+    torcs_ctrl_out_.header.stamp = ros::Time::now();
     torcs_ctrl_out_.accel = accel;
     torcs_ctrl_out_.brake = brake;
     torcs_ctrl_out_.gear = gear;
