@@ -60,8 +60,7 @@ private:
   float* opponents_array_; 
   float* focus_array_;
 
-  torcs_msgs::TORCSCtrl torcs_ctrl_out_;
-  torcs_msgs::TORCSCtrl torcs_ctrl_in_;
+  torcs_msgs::TORCSCtrl torcs_ctrl_;
   torcs_msgs::TORCSSensors torcs_sensors_;
 
   SOCKET socketDescriptor_;
@@ -72,7 +71,6 @@ private:
   char id_[1000];
   unsigned int maxEpisodes_;
   char trackName_[1000];
-  // BaseDriver::tstage stage_;
 
   tSockAddrIn serverAddress_;
   struct hostent *hostInfo_;
@@ -117,7 +115,6 @@ public:
   void laserMsgFromFloatArray(float* float_array, sensor_msgs::LaserScan &scan_result);
 
   std::string ctrlMsgToString();
-  torcs_msgs::TORCSCtrl ctrlMsgFromString(std::string torcs_string);
 
   sensor_msgs::LaserScan initRangeFinder(std::string frame, double angle_min, double angle_max, double range_min, double range_max, int ranges_dim);
 

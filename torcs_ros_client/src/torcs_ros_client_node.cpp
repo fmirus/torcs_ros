@@ -32,8 +32,7 @@ TORCSROSClient::TORCSROSClient(){
   currentStep_ = 0;
   numRead_ = 0;
 
-  torcs_ctrl_in_ = torcs_msgs::TORCSCtrl();
-  torcs_ctrl_out_ = torcs_msgs::TORCSCtrl();
+  torcs_ctrl_ = torcs_msgs::TORCSCtrl();
   torcs_sensors_ = torcs_msgs::TORCSSensors();
 
   torcs_sensors_.wheelSpinVel.resize(4, 0);
@@ -47,7 +46,6 @@ TORCSROSClient::TORCSROSClient(){
 
   debug_string_ = std_msgs::String();
 
-  // ctrl_sub_ = nh_.subscribe("torcs_ctrl_in", 1000, boost::bind(&TORCSROSClient::ctrlCallback, this, _1));
   ctrl_sub_ = nh_.subscribe("torcs_ctrl_in", 1000, &TORCSROSClient::ctrlCallback, this);
   ctrl_pub_ = nh_.advertise<torcs_msgs::TORCSCtrl>("torcs_ctrl_out", 1000);
   torcs_sensors_pub_ = nh_.advertise<torcs_msgs::TORCSSensors>("torcs_sensors_out", 1000);
@@ -130,91 +128,21 @@ bool TORCSROSClient::getShutdownClientStatus()
 
 void TORCSROSClient::ctrlCallback(const torcs_msgs::TORCSCtrl::ConstPtr& msg)
 {
-  torcs_ctrl_in_ = *msg;
+  torcs_ctrl_ = *msg;
 }
 
 std::string TORCSROSClient::ctrlMsgToString(){
   std::string result;
   
-  result  = SimpleParser::stringify("accel", (float) torcs_ctrl_in_.accel);
-  result += SimpleParser::stringify("brake", (float) torcs_ctrl_in_.brake);
-  result += SimpleParser::stringify("gear",  (int) torcs_ctrl_in_.gear);
-  result += SimpleParser::stringify("steer", (float) torcs_ctrl_in_.steering);
-  result += SimpleParser::stringify("clutch", (float) torcs_ctrl_in_.clutch);
-  result += SimpleParser::stringify("focus",  (float) torcs_ctrl_in_.focus);
-  result += SimpleParser::stringify("meta", (int) torcs_ctrl_in_.meta);
+  result  = SimpleParser::stringify("accel", (float) torcs_ctrl_.accel);
+  result += SimpleParser::stringify("brake", (float) torcs_ctrl_.brake);
+  result += SimpleParser::stringify("gear",  (int) torcs_ctrl_.gear);
+  result += SimpleParser::stringify("steer", (float) torcs_ctrl_.steering);
+  result += SimpleParser::stringify("clutch", (float) torcs_ctrl_.clutch);
+  result += SimpleParser::stringify("focus",  (float) torcs_ctrl_.focus);
+  result += SimpleParser::stringify("meta", (int) torcs_ctrl_.meta);
   
   return result; 
-}
-
-torcs_msgs::TORCSCtrl TORCSROSClient::ctrlMsgFromString(std::string torcs_string){
-  torcs_msgs::TORCSCtrl ctrl_result = torcs_msgs::TORCSCtrl();
-  float accel;
-  if(SimpleParser::parse(torcs_string, "accel", accel)==false)
-  {
-    ctrl_result.accel=0.0;
-  }
-  else
-  {
-    ctrl_result.accel = accel;
-  }
-  float brake;
-  if(SimpleParser::parse(torcs_string, "brake", brake)==false)
-  {
-    ctrl_result.brake=0.0;
-  }
-  else
-  {
-    ctrl_result.brake = brake;
-  }
-  int gear;
-  if(SimpleParser::parse(torcs_string, "gear",  gear)==false)
-  {
-    ctrl_result.gear=1;
-  }
-  else
-  {
-    ctrl_result.gear = gear;
-  }
-  float steer;
-  if(SimpleParser::parse(torcs_string, "steer", steer)==false)
-  {
-    ctrl_result.steering=0.0;
-  }
-  else
-  {
-    ctrl_result.steering = steer;
-  }
-  float clutch;
-  if(SimpleParser::parse(torcs_string, "clutch", clutch)==false)
-  {
-      ctrl_result.clutch=0.0;
-  }
-  else
-  {
-    ctrl_result.clutch = clutch;
-  }
-  int meta;
-  if(SimpleParser::parse(torcs_string, "meta", meta)==false)
-  {
-    ctrl_result.meta=0;
-  }
-  else
-  {
-    ctrl_result.meta = meta;
-  }
-  float focus;
-  if(SimpleParser::parse(torcs_string, "focus", focus)==false) //ML
-  {
-    ctrl_result.focus=0; //ML
-  }
-  else
-  {
-    ctrl_result.focus = focus;
-  }
-  if (ctrl_result.focus < -90 || ctrl_result.focus > 90)//ML What to do with focus requests out of allowed range?
-    ctrl_result.focus=360;//ML A value of 360 is used for not requesting focus readings; -1 is returned as focus reading to the client
-  return ctrl_result;
 }
 
 std::string TORCSROSClient::sensorsMsgToString(){
@@ -409,9 +337,8 @@ void TORCSROSClient::update()
       debug_string_.data = udp_str;
       debug_pub_.publish(debug_string_);
       sensorsMsgFromString((std::string) buf_);
-      torcs_ctrl_out_ = ctrlMsgFromString((std::string) buf_);
       // now publish the created ROS messages
-      ctrl_pub_.publish(torcs_ctrl_out_);
+      ctrl_pub_.publish(torcs_ctrl_);
       torcs_sensors_pub_.publish(torcs_sensors_);
       track_pub_.publish(track_);
       opponents_pub_.publish(opponents_);
