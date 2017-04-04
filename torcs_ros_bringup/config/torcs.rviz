@@ -73,7 +73,7 @@ Visualization Manager:
       Size (Pixels): 3
       Size (m): 0.00999999978
       Style: Points
-      Topic: /torcs_track
+      Topic: /torcs_ros/scan_track
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
@@ -103,7 +103,7 @@ Visualization Manager:
       Size (Pixels): 3
       Size (m): 0.00999999978
       Style: Points
-      Topic: /torcs_opponents
+      Topic: /torcs_ros/scan_opponents
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
@@ -137,7 +137,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/Image
       Enabled: true
-      Image Topic: /torcs/image
+      Image Topic: /torcs_ros/pov_image
       Max Value: 1
       Median window: 5
       Min Value: 0

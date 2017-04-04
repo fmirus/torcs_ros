@@ -39,7 +39,7 @@ TORCSImgPublisherNode::TORCSImgPublisherNode()
 
   header_ = std_msgs::Header();
   // publisher
-  image_publisher_ = it_.advertise("/torcs/image", 1);
+  image_publisher_ = it_.advertise("pov_image", 1);
 
   // cv::namedWindow("TORCS Image");
 }

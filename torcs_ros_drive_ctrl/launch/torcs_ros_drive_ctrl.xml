@@ -3,9 +3,13 @@
 
   <arg name="param_file" default="$(find torcs_ros_drive_ctrl)/config/torcs_ros_drive_ctrl.yaml"/>
   <node pkg="torcs_ros_drive_ctrl" type="torcs_ros_drive_ctrl_node" name="torcs_ros_drive_ctrl_node" output="screen">
-    <remap from="torcs_ctrl_in" to="torcs_ctrl_out"/>
-    <remap from="torcs_ctrl_out" to="torcs_ctrl_in"/>
-    <remap from="torcs_sensors_in" to="torcs_sensors_out"/>
+    <remap from="torcs_ctrl_in" to="ctrl_state" />
+    <remap from="torcs_ctrl_out" to="ctrl_cmd" />
+    <remap from="torcs_sensors_in" to="sensors_state" />
+    <remap from="torcs_track" to="scan_track" />
+    <remap from="torcs_opponents" to="scan_opponents" />
+    <remap from="torcs_focus" to="scan_focus" />
+    <remap from="torcs_speed" to="speed" />
     <rosparam file="$(arg param_file)" command="load"/>
   </node>
 </launch>
