@@ -38,13 +38,14 @@ TORCSROSClient::TORCSROSClient(){
 
   torcs_sensors_.wheelSpinVel.resize(4, 0);
 
-
   focus_array_ = new float[config_.num_focus_ranges];
   focus_ = initRangeFinder("base_link", 0-2*PI/360, 0+2*PI/360, 0, 200, 5);
   track_array_ = new float[config_.num_track_ranges];
   track_ = initRangeFinder("base_link", -PI/2, PI/2, 0, 200, 19);
   opponents_array_ = new float[config_.num_opponents_ranges];
   opponents_ = initRangeFinder("base_link", -PI/2, (2.9*PI)/2, 0, 200, 36);
+
+  debug_string_ = std_msgs::String();
 
   // ctrl_sub_ = nh_.subscribe("torcs_ctrl_in", 1000, boost::bind(&TORCSROSClient::ctrlCallback, this, _1));
   ctrl_sub_ = nh_.subscribe("torcs_ctrl_in", 1000, &TORCSROSClient::ctrlCallback, this);
@@ -54,6 +55,7 @@ TORCSROSClient::TORCSROSClient(){
   opponents_pub_ = nh_.advertise<sensor_msgs::LaserScan>("torcs_opponents", 1000);
   focus_pub_ = nh_.advertise<sensor_msgs::LaserScan>("torcs_focus", 1000);
   speed_pub_ = nh_.advertise<geometry_msgs::Twist>("torcs_speed", 1000);
+  debug_pub_ = nh_.advertise<std_msgs::String>("udp_string", 1000);
 
   bool connected = false;
   while(connected == false)
@@ -403,6 +405,9 @@ void TORCSROSClient::update()
     {
       // string action = d.drive(string(buf));
       // store sensor and ctrl data in ROS messages
+      std::string udp_str(buf_);
+      debug_string_.data = udp_str;
+      debug_pub_.publish(debug_string_);
       sensorsMsgFromString((std::string) buf_);
       torcs_ctrl_out_ = ctrlMsgFromString((std::string) buf_);
       // now publish the created ROS messages

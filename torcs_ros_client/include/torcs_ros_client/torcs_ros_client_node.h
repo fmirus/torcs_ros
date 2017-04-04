@@ -26,6 +26,7 @@ using namespace std;
 // ROS includes
 #include <ros/ros.h>
 #include <std_msgs/Header.h>
+#include <std_msgs/String.h>
 #include <sensor_msgs/LaserScan.h>
 #include <geometry_msgs/Twist.h>
 #include <torcs_msgs/TORCSCtrl.h>
@@ -83,6 +84,8 @@ private:
   unsigned long curEpisode_;
   unsigned long currentStep_; 
 
+  std_msgs::String debug_string_;
+
 public:
   ros::NodeHandle nh_, pnh_;
 
@@ -93,6 +96,7 @@ public:
   ros::Publisher opponents_pub_;
   ros::Publisher focus_pub_;
   ros::Publisher speed_pub_;
+  ros::Publisher debug_pub_;
 
   TORCSROSClient();
   ~TORCSROSClient();
