@@ -8,7 +8,6 @@ This is a ROS implementation of the client and driver from the [TORCS SCR C++ cl
  - Install [opencv](http://docs.opencv.org/trunk/d7/d9f/tutorial_linux_install.html)
  - Install ROS according to the [installation insctructions](http://wiki.ros.org/kinetic/Installation/Ubuntu) and [create a catkin workspace](http://wiki.ros.org/catkin/Tutorials/create_a_workspace). 
  - Clone this repository into your catkin workspace and [build it](http://wiki.ros.org/catkin/commands/catkin_make)
- - 
 
 ## Usage
 
