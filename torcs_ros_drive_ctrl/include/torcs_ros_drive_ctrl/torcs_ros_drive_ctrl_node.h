@@ -16,7 +16,7 @@ using namespace std;
 #include <ros/ros.h>
 #include <std_msgs/Header.h>
 #include <sensor_msgs/LaserScan.h>
-#include <geometry_msgs/Twist.h>
+#include <geometry_msgs/TwistStamped.h>
 #include <torcs_msgs/TORCSCtrl.h>
 #include <torcs_msgs/TORCSSensors.h>
 
@@ -82,7 +82,7 @@ private:
   sensor_msgs::LaserScan track_;
   sensor_msgs::LaserScan opponents_;
   sensor_msgs::LaserScan focus_;
-  geometry_msgs::Twist speed_;
+  geometry_msgs::TwistStamped speed_;
 
   torcs_msgs::TORCSCtrl torcs_ctrl_out_;
   torcs_msgs::TORCSCtrl torcs_ctrl_in_;
@@ -132,7 +132,7 @@ public:
   void laserTrackCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
   void laserFocusCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
   void laserOpponentsCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
-  void twistSpeedCallback(const geometry_msgs::Twist::ConstPtr& msg);
+  void twistSpeedCallback(const geometry_msgs::TwistStamped::ConstPtr& msg);
 
   double getLoopRate();
 };

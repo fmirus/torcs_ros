@@ -19,6 +19,7 @@ TORCSROSDriveCtrl::TORCSROSDriveCtrl()
   focus_ = sensor_msgs::LaserScan();
   track_ = sensor_msgs::LaserScan();
   opponents_ = sensor_msgs::LaserScan();
+  speed_= geometry_msgs::TwistStamped();
 
 
   ctrl_sub_ = nh_.subscribe("torcs_ctrl_in", 1000, &TORCSROSDriveCtrl::ctrlCallback, this);
@@ -162,8 +163,8 @@ double TORCSROSDriveCtrl::getSteer()
     // axis [cs.getAngle()] and to adjust car position w.r.t to middle of track [cs.getTrackPos()*0.5]
     double targetAngle=(torcs_sensors_.angle - torcs_sensors_.trackPos*0.5);
     // at high speed reduce the steering command to avoid loosing the control
-    if (speed_.linear.x > config_.steerSensitivityOffset)
-      return targetAngle/(config_.steerLock*(speed_.linear.x-config_.steerSensitivityOffset)*config_.wheelSensitivityCoeff);
+    if (speed_.twist.linear.x > config_.steerSensitivityOffset)
+      return targetAngle/(config_.steerLock*(speed_.twist.linear.x-config_.steerSensitivityOffset)*config_.wheelSensitivityCoeff);
     else
       return (targetAngle)/config_.steerLock;
 }
@@ -215,7 +216,7 @@ double TORCSROSDriveCtrl::getAccel()
     }
 
     // accel/brake command is expontially scaled w.r.t. the difference between target speed and current one
-    return 2/(1+exp(speed_.linear.x - targetSpeed)) - 1;
+    return 2/(1+exp(speed_.twist.linear.x - targetSpeed)) - 1;
   }
   else
     return 0.3; // when out of track returns a moderate acceleration command
@@ -226,7 +227,7 @@ double TORCSROSDriveCtrl::getAccel()
 double TORCSROSDriveCtrl::filterABS(double brake)
 {
   // convert speed to m/s
-  double speed = speed_.linear.x / 3.6;
+  double speed = speed_.twist.linear.x / 3.6;
   // when spedd lower than min speed for abs do nothing
   if (speed < config_.absMinSpeed)
     return brake;
@@ -319,7 +320,7 @@ void TORCSROSDriveCtrl::laserOpponentsCallback(const sensor_msgs::LaserScan::Con
   opponents_ = *msg;
 }
 
-void TORCSROSDriveCtrl::twistSpeedCallback(const geometry_msgs::Twist::ConstPtr& msg)
+void TORCSROSDriveCtrl::twistSpeedCallback(const geometry_msgs::TwistStamped::ConstPtr& msg)
 {
   ROS_DEBUG_STREAM("subscribe speed");
   speed_ = *msg;

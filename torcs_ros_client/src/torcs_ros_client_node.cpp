@@ -34,6 +34,7 @@ TORCSROSClient::TORCSROSClient(){
 
   torcs_ctrl_ = torcs_msgs::TORCSCtrl();
   torcs_sensors_ = torcs_msgs::TORCSSensors();
+  speed_ = geometry_msgs::TwistStamped();
 
   torcs_sensors_.wheelSpinVel.resize(4, 0);
 
@@ -52,7 +53,7 @@ TORCSROSClient::TORCSROSClient(){
   track_pub_ = nh_.advertise<sensor_msgs::LaserScan>("torcs_track", 1000);
   opponents_pub_ = nh_.advertise<sensor_msgs::LaserScan>("torcs_opponents", 1000);
   focus_pub_ = nh_.advertise<sensor_msgs::LaserScan>("torcs_focus", 1000);
-  speed_pub_ = nh_.advertise<geometry_msgs::Twist>("torcs_speed", 1000);
+  speed_pub_ = nh_.advertise<geometry_msgs::TwistStamped>("torcs_speed", 1000);
   debug_pub_ = nh_.advertise<std_msgs::String>("udp_string", 1000);
 
   bool connected = false;
@@ -169,9 +170,9 @@ std::string TORCSROSClient::sensorsMsgToString(){
   result += SimpleParser::stringify("opponents", opponents_array_, config_.num_opponents_ranges);
   result += SimpleParser::stringify("racePos", (int)torcs_sensors_.racePos);
   result += SimpleParser::stringify("rpm", (float)torcs_sensors_.rpm);
-  result += SimpleParser::stringify("speedX", (float)speed_.linear.x);
-  result += SimpleParser::stringify("speedY", (float)speed_.linear.y);
-  result += SimpleParser::stringify("speedZ", (float)speed_.linear.z);
+  result += SimpleParser::stringify("speedX", (float)speed_.twist.linear.x);
+  result += SimpleParser::stringify("speedY", (float)speed_.twist.linear.y);
+  result += SimpleParser::stringify("speedZ", (float)speed_.twist.linear.z);
   result += SimpleParser::stringify("track", track_array_, config_.num_track_ranges);
   result += SimpleParser::stringify("trackPos", (float) torcs_sensors_.trackPos);
   result += SimpleParser::stringify("wheelSpinVel", wheelSpinVel_, 4);
@@ -244,13 +245,14 @@ void TORCSROSClient::sensorsMsgFromString(std::string torcs_string){
   SimpleParser::parse(torcs_string, "track", track_array_, config_.num_track_ranges);
   laserMsgFromFloatArray(track_array_, track_);
 
+  speed_.header.stamp = ros::Time::now();
   float speedX, speedY, speedZ;
   SimpleParser::parse(torcs_string, "speedX", speedX);
   SimpleParser::parse(torcs_string, "speedY", speedY);
   SimpleParser::parse(torcs_string, "speedZ", speedZ);
-  speed_.linear.x = speedX;
-  speed_.linear.y = speedY;
-  speed_.linear.z = speedZ;
+  speed_.twist.linear.x = speedX;
+  speed_.twist.linear.y = speedY;
+  speed_.twist.linear.z = speedZ;
 
 }
 

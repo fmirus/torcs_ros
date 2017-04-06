@@ -28,7 +28,7 @@ using namespace std;
 #include <std_msgs/Header.h>
 #include <std_msgs/String.h>
 #include <sensor_msgs/LaserScan.h>
-#include <geometry_msgs/Twist.h>
+#include <geometry_msgs/TwistStamped.h>
 #include <torcs_msgs/TORCSCtrl.h>
 #include <torcs_msgs/TORCSSensors.h>
 
@@ -54,7 +54,7 @@ private:
   sensor_msgs::LaserScan track_;
   sensor_msgs::LaserScan opponents_;
   sensor_msgs::LaserScan focus_;
-  geometry_msgs::Twist speed_;
+  geometry_msgs::TwistStamped speed_;
   float wheelSpinVel_[4];
   float* track_array_;
   float* opponents_array_; 
