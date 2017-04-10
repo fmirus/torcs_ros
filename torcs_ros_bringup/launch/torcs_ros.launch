@@ -2,6 +2,7 @@
 <launch>
 
   <arg name="driver" default="true"/>
+  <arg name="rviz" default="true"/>
 
   <!-- broadcast world and base_link frames -->
   <node pkg="tf" type="static_transform_publisher" name="base_link_broadcaster" args="1 0 0 0 0 0 1 world base_link 100" />
@@ -17,7 +18,7 @@
     <include file="$(find torcs_ros_drive_ctrl)/launch/torcs_ros_drive_ctrl.xml"  if="$(arg driver)"/>
 
     <!-- start torcs start rviz for visualization -->
-    <node pkg="rviz" type="rviz" name="rviz" args="-d $(find torcs_ros_bringup)/config/torcs.rviz" respawn="false" output="screen" />
+    <node pkg="rviz" type="rviz" name="rviz" args="-d $(find torcs_ros_bringup)/config/torcs.rviz" respawn="false" output="screen" if="$(arg rviz)" />
   </group>
 
 </launch>
