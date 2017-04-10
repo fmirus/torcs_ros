@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="param_file" default="$(find torcs_ros_client)/config/torcs_ros_client.yaml"/>
+  <node pkg="torcs_ros_client" type="torcs_ros_client_node" name="torcs_ros_client_node" output="screen" ns="torcs_ros">
+    <remap from="torcs_ctrl_in" to="ctrl_cmd" />
+    <remap from="torcs_ctrl_out" to="ctrl_state" />
+    <remap from="torcs_sensors_out" to="sensors_state" />
+    <remap from="torcs_track" to="scan_track" />
+    <remap from="torcs_opponents" to="scan_opponents" />
+    <remap from="torcs_focus" to="scan_focus" />
+    <remap from="torcs_speed" to="speed" />
+    <rosparam file="$(arg param_file)" command="load"/>
+  </node>
+</launch>
+
