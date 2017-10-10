@@ -39,7 +39,7 @@ import tensorflow as tf
 
 class Controler:
     def __init__(self, image_topic='torcs_ros/pov_image',control_topic='/torcs_ros/ctrl_cmd', sensors_topic='/torcs_ros/sensors_state'):
-        self.model_path = '/home/max/Schreibtisch/weights_epoch_99.h5' #load neural net at path
+        self.model_path = os.getcwd() + '/trained_model.h5' 
         self.bridge = CvBridge() #instance to convert image data
         self.net = self.load_net() #load net
         self.control_msg = TORCSCtrl()
