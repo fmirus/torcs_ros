@@ -43,7 +43,7 @@ TORCSROSClient::TORCSROSClient(){
   track_array_ = new float[config_.num_track_ranges];
   track_ = initRangeFinder("base_link", -PI/2, PI/2, 0, 200, 19);
   opponents_array_ = new float[config_.num_opponents_ranges];
-  opponents_ = initRangeFinder("base_link", -PI/2, (2.9*PI)/2, 0, 200, 36);
+  opponents_ = initRangeFinder("base_link", -PI, 0.99*PI, 0, 200, 36);
 
   debug_string_ = std_msgs::String();
 
@@ -60,7 +60,7 @@ TORCSROSClient::TORCSROSClient(){
   while(connected == false)
   {
     ROS_WARN_STREAM("Not connected to server yet!!");
-    connected = connect();  
+    connected = connect();
   }
 }
 
@@ -134,7 +134,7 @@ void TORCSROSClient::ctrlCallback(const torcs_msgs::TORCSCtrl::ConstPtr& msg)
 
 std::string TORCSROSClient::ctrlMsgToString(){
   std::string result;
-  
+
   result  = SimpleParser::stringify("accel", (float) torcs_ctrl_.accel);
   result += SimpleParser::stringify("brake", (float) torcs_ctrl_.brake);
   result += SimpleParser::stringify("gear",  (int) torcs_ctrl_.gear);
@@ -142,14 +142,14 @@ std::string TORCSROSClient::ctrlMsgToString(){
   result += SimpleParser::stringify("clutch", (float) torcs_ctrl_.clutch);
   result += SimpleParser::stringify("focus",  (float) torcs_ctrl_.focus);
   result += SimpleParser::stringify("meta", (int) torcs_ctrl_.meta);
-  
-  return result; 
+
+  return result;
 }
 
 std::string TORCSROSClient::sensorsMsgToString(){
 
   std::string result;
-  
+
   laserMsgToFloatArray(focus_, focus_array_);
   laserMsgToFloatArray(opponents_, opponents_array_);
   laserMsgToFloatArray(track_, track_array_);
@@ -190,19 +190,19 @@ void TORCSROSClient::sensorsMsgFromString(std::string torcs_string){
   float curLapTime;
   SimpleParser::parse(torcs_string, "curLapTime", curLapTime);
   torcs_sensors_.currentLapTime = curLapTime;
-  
+
   float damage;
   SimpleParser::parse(torcs_string, "damage", damage);
   torcs_sensors_.damage = damage;
-  
+
   float distFromStart;
   SimpleParser::parse(torcs_string, "distFromStart", distFromStart);
   torcs_sensors_.distFromStart = distFromStart;
-  
+
   float distRaced;
   SimpleParser::parse(torcs_string, "distRaced", distRaced);
   torcs_sensors_.distRaced = distRaced;
-  
+
   float fuel;
   SimpleParser::parse(torcs_string, "fuel", fuel);
   torcs_sensors_.fuel = fuel;
@@ -232,7 +232,7 @@ void TORCSROSClient::sensorsMsgFromString(std::string torcs_string){
   {
     torcs_sensors_.wheelSpinVel[i] = wheelSpinVel_[i];
   }
-  
+
   float z;
   SimpleParser::parse(torcs_string, "z", z);
   torcs_sensors_.z = z;
@@ -240,6 +240,7 @@ void TORCSROSClient::sensorsMsgFromString(std::string torcs_string){
   SimpleParser::parse(torcs_string, "focus", focus_array_, config_.num_focus_ranges);
   laserMsgFromFloatArray(focus_array_, focus_);
 
+  SimpleParser::parse(torcs_string, "opponents", opponents_array_, config_.num_opponents_ranges);
   laserMsgFromFloatArray(opponents_array_, opponents_);
 
   SimpleParser::parse(torcs_string, "track", track_array_, config_.num_track_ranges);
@@ -256,7 +257,7 @@ void TORCSROSClient::sensorsMsgFromString(std::string torcs_string){
 
 }
 
-sensor_msgs::LaserScan TORCSROSClient::initRangeFinder(std::string frame, double angle_min, double angle_max, 
+sensor_msgs::LaserScan TORCSROSClient::initRangeFinder(std::string frame, double angle_min, double angle_max,
                                                        double range_min, double range_max, int ranges_dim)
 {
   sensor_msgs::LaserScan result = sensor_msgs::LaserScan();
@@ -273,7 +274,7 @@ sensor_msgs::LaserScan TORCSROSClient::initRangeFinder(std::string frame, double
   result.ranges.resize(ranges_dim, 0);
 
   return result;
-}                                                       
+}
 void TORCSROSClient::laserMsgToFloatArray(sensor_msgs::LaserScan scan, float* result)
 {
   int size = scan.ranges.size();
