@@ -44,7 +44,7 @@ TORCSROSClient::TORCSROSClient(){
   track_array_ = new float[config_.num_track_ranges];
   track_ = initRangeFinder("base_link", -PI/2, PI/2, 0, 200, 19);
   opponents_array_ = new float[config_.num_opponents_ranges];
-  opponents_ = initRangeFinder("base_link", -PI/2, (2.9*PI)/2, 0, 200, 36);
+  opponents_ = initRangeFinder("base_link", -PI, 0.99*PI, 0, 200, 36);
 
   debug_string_ = std_msgs::String();
 
