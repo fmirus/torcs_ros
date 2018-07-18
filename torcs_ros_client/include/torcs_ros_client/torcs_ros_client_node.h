@@ -59,6 +59,10 @@ private:
   sensor_msgs::LaserScan opponents_;
   sensor_msgs::LaserScan focus_;
   geometry_msgs::TwistStamped speed_;
+  geometry_msgs::TwistStamped globalSpeed_; //car speed in reference to world frame
+  geometry_msgs::PoseStamped globalPose_; //car pose in reference to world frame 
+  geometry_msgs::Vector3Stamped globalRPY_; //roll pitch yaw of car in reference to world frame
+
   float wheelSpinVel_[4];
   float* track_array_;
   float* opponents_array_; 
@@ -66,7 +70,6 @@ private:
 
   torcs_msgs::TORCSCtrl torcs_ctrl_;
   torcs_msgs::TORCSSensors torcs_sensors_;
-  torcs_msgs::TORCSGlobal torcs_global_;
 
   SOCKET socketDescriptor_;
   int numRead_;
@@ -95,12 +98,14 @@ public:
   ros::Subscriber ctrl_sub_;
   ros::Publisher ctrl_pub_;
   ros::Publisher torcs_sensors_pub_;
-  ros::Publisher torcs_global_pub_;
   ros::Publisher track_pub_;
   ros::Publisher opponents_pub_;
   ros::Publisher focus_pub_;
   ros::Publisher speed_pub_;
   ros::Publisher debug_pub_;
+  ros::Publisher globalSpeed_pub_;
+  ros::Publisher globalPose_pub_;
+  ros::Publisher globalRPY_pub_; //redundant, as information is present in quaternion of pose
 
   TORCSROSClient();
   ~TORCSROSClient();
