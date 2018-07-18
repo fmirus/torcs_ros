@@ -21,7 +21,6 @@ add_message_files(
   TORCSCtrl.msg
   TORCSSensors.msg
   TORCSGlobal.msg
-  #TORCSGlobal.msg
 )
 
 ## Generate added messages and services with any dependencies listed here
