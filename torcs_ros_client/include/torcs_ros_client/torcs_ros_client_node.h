@@ -31,6 +31,7 @@ using namespace std;
 #include <geometry_msgs/TwistStamped.h>
 #include <torcs_msgs/TORCSCtrl.h>
 #include <torcs_msgs/TORCSSensors.h>
+#include <torcs_msgs/TORCSGlobal.h>
 
 #include <SimpleParser.h>
 
@@ -62,6 +63,7 @@ private:
 
   torcs_msgs::TORCSCtrl torcs_ctrl_;
   torcs_msgs::TORCSSensors torcs_sensors_;
+  torcs_msgs::TORCSGlobal torcs_global_;
 
   SOCKET socketDescriptor_;
   int numRead_;
@@ -90,6 +92,7 @@ public:
   ros::Subscriber ctrl_sub_;
   ros::Publisher ctrl_pub_;
   ros::Publisher torcs_sensors_pub_;
+  ros::Publisher torcs_global_pub_;
   ros::Publisher track_pub_;
   ros::Publisher opponents_pub_;
   ros::Publisher focus_pub_;
