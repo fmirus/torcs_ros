@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
   torcs_msgs
+  tf
 )
 
 ###################################
@@ -28,7 +29,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES torcs_ros_client
-  CATKIN_DEPENDS geometry_msgs roscpp rospy sensor_msgs std_msgs torcs_msgs
+  CATKIN_DEPENDS geometry_msgs roscpp rospy sensor_msgs std_msgs torcs_msgs tf
 #  DEPENDS system_lib
 )
 
