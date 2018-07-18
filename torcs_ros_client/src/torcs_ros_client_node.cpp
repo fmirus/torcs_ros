@@ -178,14 +178,14 @@ std::string TORCSROSClient::sensorsMsgToString(){
   result += SimpleParser::stringify("track", track_array_, config_.num_track_ranges);
   result += SimpleParser::stringify("trackPos", (float) torcs_sensors_.trackPos);
   result += SimpleParser::stringify("wheelSpinVel", wheelSpinVel_, 4);
-  result += SimpleParser::stringify("z", (float)torcs_sensors_.z);
-  result += SimpleParser::stringify("x", (float)torcs_global_.x); 
-  result += SimpleParser::stringify("y", (float)torcs_global_.y); 
+  result += SimpleParser::stringify("z", (float)torcs_global_.pose.position.z);
+  result += SimpleParser::stringify("x", (float)torcs_global_.pose.position.x); 
+  result += SimpleParser::stringify("y", (float)torcs_global_.pose.position.y); 
   result += SimpleParser::stringify("roll", (float)torcs_global_.roll);
   result += SimpleParser::stringify("pitch", (float)torcs_global_.pitch); 
   result += SimpleParser::stringify("yaw", (float)torcs_global_.yaw); 
-  result += SimpleParser::stringify("speedGlobalX", (float)torcs_global_.speedGX); 
-  result += SimpleParser::stringify("speedGlobalY", (float)torcs_global_.speedGY); 
+  result += SimpleParser::stringify("speedGlobalX", (float)torcs_global_.speedGlobal.linear.x); 
+  result += SimpleParser::stringify("speedGlobalY", (float)torcs_global_.speedGlobal.linear.y); 
 
 
 
@@ -248,15 +248,14 @@ void TORCSROSClient::sensorsMsgFromString(std::string torcs_string){
   float z;
   SimpleParser::parse(torcs_string, "z", z);
   torcs_sensors_.z = z; //depreceated
-  torcs_global_.z = z;
-  
+  torcs_global_.pose.position.z = z;
   float x;
   SimpleParser::parse(torcs_string, "x", x);
-  torcs_global_.x = x;
+  torcs_global_.pose.position.x = x;
 
   float y;
   SimpleParser::parse(torcs_string, "y", y);
-  torcs_global_.y = y;
+  torcs_global_.pose.position.y = y;
 
   float roll;
   SimpleParser::parse(torcs_string, "roll", roll);
@@ -270,13 +269,21 @@ void TORCSROSClient::sensorsMsgFromString(std::string torcs_string){
   SimpleParser::parse(torcs_string, "yaw", yaw);
   torcs_global_.yaw = yaw;
 
+  //convert roll pitch yaw to quaternion for geometry message
+  geometry_msgs::Quaternion quat_broadcast = tf::createQuaternionMsgFromRollPitchYaw(roll, pitch, yaw);
+  torcs_global_.pose.orientation = quat_broadcast;
+
+
   float speedGX;
   SimpleParser::parse(torcs_string, "speedGlobalX", speedGX);
-  torcs_global_.speedGX = speedGX;
+  torcs_global_.speedGlobal.linear.x = speedGX;
 
   float speedGY;
   SimpleParser::parse(torcs_string, "speedGlobalY", speedGY);
-  torcs_global_.speedGY = speedGY;
+  torcs_global_.speedGlobal.linear.y = speedGY;
+
+  
+  
 
   SimpleParser::parse(torcs_string, "focus", focus_array_, config_.num_focus_ranges);
   laserMsgFromFloatArray(focus_array_, focus_);
@@ -391,6 +398,18 @@ void TORCSROSClient::update()
       opponents_pub_.publish(opponents_);
       focus_pub_.publish(focus_);
       speed_pub_.publish(speed_);
+
+      //Broadcast tf:Broadcast
+      static tf::TransformBroadcaster broadcast; //broadcast object
+      tf::Transform base_link; //car frame in world coordinates
+      base_link.setOrigin(tf::Vector3(torcs_global_.pose.position.x, torcs_global_.pose.position.y, torcs_global_.pose.position.z)); //origin is offset of world origin
+      tf::Quaternion quat_base; //quaternion object used in tf to calculate rotation matrix
+      quat_base.setRPY(torcs_global_.roll, torcs_global_.pitch, torcs_global_.yaw); //set rotation by roll pith yaw
+      base_link.setRotation(quat_base); //rotate base_link
+      broadcast.sendTransform(tf::StampedTransform(base_link, ros::Time::now(), "world", "base_link")); //broadcast base_link
+
+
+
       // create string from subscribed ctrl msg
       std::string action = ctrlMsgToString();
       memset(buf_, 0x0, UDP_MSGLEN);
