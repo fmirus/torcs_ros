@@ -198,8 +198,12 @@ std::string TORCSROSClient::sensorsMsgToString(){
 void TORCSROSClient::sensorsMsgFromString(std::string torcs_string){
   torcs_sensors_.header.stamp = ros::Time::now();
   globalSpeed_.header.stamp = ros::Time::now();
+  globalSpeed_.header.frame_id = "world";
   globalPose_.header.stamp = ros::Time::now();
+  globalPose_.header.frame_id = "world";
   globalRPY_.header.stamp = ros::Time::now();
+  globalRPY_.header.frame_id = "world";
+
 
   float angle;
   SimpleParser::parse(torcs_string, "angle", angle);
