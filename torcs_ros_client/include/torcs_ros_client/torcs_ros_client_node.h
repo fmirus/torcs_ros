@@ -31,7 +31,6 @@ using namespace std;
 #include <geometry_msgs/TwistStamped.h>
 #include <torcs_msgs/TORCSCtrl.h>
 #include <torcs_msgs/TORCSSensors.h>
-#include <torcs_msgs/TORCSGlobal.h>
 #include <tf/tf.h>
 #include <tf/transform_broadcaster.h> //Used to broadcast frame 
 #include <tf/transform_datatypes.h> //Used to transform roll/pitch/yaw to geometry_msgs::quaternion
