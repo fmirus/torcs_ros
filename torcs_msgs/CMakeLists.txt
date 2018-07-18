@@ -20,9 +20,12 @@ add_message_files(
   FILES
   TORCSCtrl.msg
   TORCSSensors.msg
+  TORCSGlobal.msg
 )
 
 ## Generate added messages and services with any dependencies listed here
 generate_messages(DEPENDENCIES geometry_msgs sensor_msgs std_msgs)
 
 catkin_package(CATKIN_DEPENDS std_msgs sensor_msgs geometry_msgs message_runtime)
+
+

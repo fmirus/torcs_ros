@@ -34,6 +34,7 @@ TORCSROSClient::TORCSROSClient(){
 
   torcs_ctrl_ = torcs_msgs::TORCSCtrl();
   torcs_sensors_ = torcs_msgs::TORCSSensors();
+  torcs_global_ = torcs_msgs::TORCSGlobal(); 
   speed_ = geometry_msgs::TwistStamped();
 
   torcs_sensors_.wheelSpinVel.resize(4, 0);
@@ -50,6 +51,7 @@ TORCSROSClient::TORCSROSClient(){
   ctrl_sub_ = nh_.subscribe("torcs_ctrl_in", 1000, &TORCSROSClient::ctrlCallback, this);
   ctrl_pub_ = nh_.advertise<torcs_msgs::TORCSCtrl>("torcs_ctrl_out", 1000);
   torcs_sensors_pub_ = nh_.advertise<torcs_msgs::TORCSSensors>("torcs_sensors_out", 1000);
+  torcs_global_pub_ = nh_.advertise<torcs_msgs::TORCSGlobal>("torcs_global_out", 1000); 
   track_pub_ = nh_.advertise<sensor_msgs::LaserScan>("torcs_track", 1000);
   opponents_pub_ = nh_.advertise<sensor_msgs::LaserScan>("torcs_opponents", 1000);
   focus_pub_ = nh_.advertise<sensor_msgs::LaserScan>("torcs_focus", 1000);
@@ -177,11 +179,21 @@ std::string TORCSROSClient::sensorsMsgToString(){
   result += SimpleParser::stringify("trackPos", (float) torcs_sensors_.trackPos);
   result += SimpleParser::stringify("wheelSpinVel", wheelSpinVel_, 4);
   result += SimpleParser::stringify("z", (float)torcs_sensors_.z);
+  result += SimpleParser::stringify("x", (float)torcs_global_.x); 
+  result += SimpleParser::stringify("y", (float)torcs_global_.y); 
+  result += SimpleParser::stringify("roll", (float)torcs_global_.roll);
+  result += SimpleParser::stringify("pitch", (float)torcs_global_.pitch); 
+  result += SimpleParser::stringify("yaw", (float)torcs_global_.yaw); 
+  result += SimpleParser::stringify("speedGlobalX", (float)torcs_global_.speedGX); 
+  result += SimpleParser::stringify("speedGlobalY", (float)torcs_global_.speedGY); 
+
+
 
   return result;
 }
 void TORCSROSClient::sensorsMsgFromString(std::string torcs_string){
   torcs_sensors_.header.stamp = ros::Time::now();
+  torcs_global_.header.stamp = ros::Time::now();
 
   float angle;
   SimpleParser::parse(torcs_string, "angle", angle);
@@ -235,7 +247,36 @@ void TORCSROSClient::sensorsMsgFromString(std::string torcs_string){
 
   float z;
   SimpleParser::parse(torcs_string, "z", z);
-  torcs_sensors_.z = z;
+  torcs_sensors_.z = z; //depreceated
+  torcs_global_.z = z;
+  
+  float x;
+  SimpleParser::parse(torcs_string, "x", x);
+  torcs_global_.x = x;
+
+  float y;
+  SimpleParser::parse(torcs_string, "y", y);
+  torcs_global_.y = y;
+
+  float roll;
+  SimpleParser::parse(torcs_string, "roll", roll);
+  torcs_global_.roll = roll;
+
+  float pitch;
+  SimpleParser::parse(torcs_string, "pitch", pitch);
+  torcs_global_.pitch = pitch;
+
+  float yaw;
+  SimpleParser::parse(torcs_string, "yaw", yaw);
+  torcs_global_.yaw = yaw;
+
+  float speedGX;
+  SimpleParser::parse(torcs_string, "speedGlobalX", speedGX);
+  torcs_global_.speedGX = speedGX;
+
+  float speedGY;
+  SimpleParser::parse(torcs_string, "speedGlobalY", speedGY);
+  torcs_global_.speedGY = speedGY;
 
   SimpleParser::parse(torcs_string, "focus", focus_array_, config_.num_focus_ranges);
   laserMsgFromFloatArray(focus_array_, focus_);
@@ -345,6 +386,7 @@ void TORCSROSClient::update()
       // now publish the created ROS messages
       ctrl_pub_.publish(torcs_ctrl_);
       torcs_sensors_pub_.publish(torcs_sensors_);
+      torcs_global_pub_.publish(torcs_global_);
       track_pub_.publish(track_);
       opponents_pub_.publish(opponents_);
       focus_pub_.publish(focus_);
