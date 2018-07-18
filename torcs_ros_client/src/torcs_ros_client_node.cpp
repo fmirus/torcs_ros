@@ -34,7 +34,7 @@ TORCSROSClient::TORCSROSClient(){
 
   torcs_ctrl_ = torcs_msgs::TORCSCtrl();
   torcs_sensors_ = torcs_msgs::TORCSSensors();
-  torcs_global_ = torcs_msgs::TORCSGlobal(); //x
+  torcs_global_ = torcs_msgs::TORCSGlobal(); 
   speed_ = geometry_msgs::TwistStamped();
 
   torcs_sensors_.wheelSpinVel.resize(4, 0);
@@ -44,14 +44,14 @@ TORCSROSClient::TORCSROSClient(){
   track_array_ = new float[config_.num_track_ranges];
   track_ = initRangeFinder("base_link", -PI/2, PI/2, 0, 200, 19);
   opponents_array_ = new float[config_.num_opponents_ranges];
-  opponents_ = initRangeFinder("base_link", -PI, 0.99*PI, 0, 200, 36);
+  opponents_ = initRangeFinder("base_link", -PI/2, (2.9*PI)/2, 0, 200, 36);
 
   debug_string_ = std_msgs::String();
 
   ctrl_sub_ = nh_.subscribe("torcs_ctrl_in", 1000, &TORCSROSClient::ctrlCallback, this);
   ctrl_pub_ = nh_.advertise<torcs_msgs::TORCSCtrl>("torcs_ctrl_out", 1000);
   torcs_sensors_pub_ = nh_.advertise<torcs_msgs::TORCSSensors>("torcs_sensors_out", 1000);
-  torcs_global_pub_ = nh_.advertise<torcs_msgs::TORCSGlobal>("torcs_global_out", 1000); //x
+  torcs_global_pub_ = nh_.advertise<torcs_msgs::TORCSGlobal>("torcs_global_out", 1000); 
   track_pub_ = nh_.advertise<sensor_msgs::LaserScan>("torcs_track", 1000);
   opponents_pub_ = nh_.advertise<sensor_msgs::LaserScan>("torcs_opponents", 1000);
   focus_pub_ = nh_.advertise<sensor_msgs::LaserScan>("torcs_focus", 1000);
@@ -386,7 +386,7 @@ void TORCSROSClient::update()
       // now publish the created ROS messages
       ctrl_pub_.publish(torcs_ctrl_);
       torcs_sensors_pub_.publish(torcs_sensors_);
-      torcs_global_pub_.publish(torcs_global_); //x
+      torcs_global_pub_.publish(torcs_global_);
       track_pub_.publish(track_);
       opponents_pub_.publish(opponents_);
       focus_pub_.publish(focus_);
