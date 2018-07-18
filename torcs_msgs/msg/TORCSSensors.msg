@@ -32,6 +32,3 @@ float64[] wheelSpinVel
 # Distance of the car mass center from the surface of the track
 # along the Z axis in meters
 float64 z
-# Distance of the car to the world origin 
-# along the X axis in meters
-
