@@ -4,8 +4,6 @@
   <arg name="driver" default="true"/>
   <arg name="rviz" default="true"/>
 
-  <!-- broadcast world and base_link frames -->
-  <node pkg="tf" type="static_transform_publisher" name="base_link_broadcaster" args="1 0 0 0 0 0 1 world base_link 100" />
 
   <group ns="torcs_ros" >
     <!-- start torcs ros client -->

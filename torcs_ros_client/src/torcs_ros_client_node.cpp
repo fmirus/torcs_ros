@@ -35,6 +35,9 @@ TORCSROSClient::TORCSROSClient(){
   torcs_ctrl_ = torcs_msgs::TORCSCtrl();
   torcs_sensors_ = torcs_msgs::TORCSSensors();
   speed_ = geometry_msgs::TwistStamped();
+  globalSpeed_ = geometry_msgs::TwistStamped(); //car speed in reference two world frame
+  globalPose_ = geometry_msgs::PoseStamped();
+  globalRPY_ = geometry_msgs::Vector3Stamped();
 
   torcs_sensors_.wheelSpinVel.resize(4, 0);
 
@@ -43,13 +46,16 @@ TORCSROSClient::TORCSROSClient(){
   track_array_ = new float[config_.num_track_ranges];
   track_ = initRangeFinder("base_link", -PI/2, PI/2, 0, 200, 19);
   opponents_array_ = new float[config_.num_opponents_ranges];
-  opponents_ = initRangeFinder("base_link", -PI/2, (2.9*PI)/2, 0, 200, 36);
+  opponents_ = initRangeFinder("base_link", -PI, 0.99*PI, 0, 200, 36);
 
   debug_string_ = std_msgs::String();
 
   ctrl_sub_ = nh_.subscribe("torcs_ctrl_in", 1000, &TORCSROSClient::ctrlCallback, this);
   ctrl_pub_ = nh_.advertise<torcs_msgs::TORCSCtrl>("torcs_ctrl_out", 1000);
   torcs_sensors_pub_ = nh_.advertise<torcs_msgs::TORCSSensors>("torcs_sensors_out", 1000);
+  globalSpeed_pub_ = nh_.advertise<geometry_msgs::TwistStamped>("torcs_global_speed", 1000); 
+  globalPose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("torcs_global_pose", 1000);
+  globalRPY_pub_ = nh_.advertise<geometry_msgs::Vector3Stamped>("torcs_global_rpy", 1000);
   track_pub_ = nh_.advertise<sensor_msgs::LaserScan>("torcs_track", 1000);
   opponents_pub_ = nh_.advertise<sensor_msgs::LaserScan>("torcs_opponents", 1000);
   focus_pub_ = nh_.advertise<sensor_msgs::LaserScan>("torcs_focus", 1000);
@@ -60,7 +66,7 @@ TORCSROSClient::TORCSROSClient(){
   while(connected == false)
   {
     ROS_WARN_STREAM("Not connected to server yet!!");
-    connected = connect();  
+    connected = connect();
   }
 }
 
@@ -134,7 +140,7 @@ void TORCSROSClient::ctrlCallback(const torcs_msgs::TORCSCtrl::ConstPtr& msg)
 
 std::string TORCSROSClient::ctrlMsgToString(){
   std::string result;
-  
+
   result  = SimpleParser::stringify("accel", (float) torcs_ctrl_.accel);
   result += SimpleParser::stringify("brake", (float) torcs_ctrl_.brake);
   result += SimpleParser::stringify("gear",  (int) torcs_ctrl_.gear);
@@ -142,14 +148,14 @@ std::string TORCSROSClient::ctrlMsgToString(){
   result += SimpleParser::stringify("clutch", (float) torcs_ctrl_.clutch);
   result += SimpleParser::stringify("focus",  (float) torcs_ctrl_.focus);
   result += SimpleParser::stringify("meta", (int) torcs_ctrl_.meta);
-  
-  return result; 
+
+  return result;
 }
 
 std::string TORCSROSClient::sensorsMsgToString(){
 
   std::string result;
-  
+
   laserMsgToFloatArray(focus_, focus_array_);
   laserMsgToFloatArray(opponents_, opponents_array_);
   laserMsgToFloatArray(track_, track_array_);
@@ -176,12 +182,28 @@ std::string TORCSROSClient::sensorsMsgToString(){
   result += SimpleParser::stringify("track", track_array_, config_.num_track_ranges);
   result += SimpleParser::stringify("trackPos", (float) torcs_sensors_.trackPos);
   result += SimpleParser::stringify("wheelSpinVel", wheelSpinVel_, 4);
-  result += SimpleParser::stringify("z", (float)torcs_sensors_.z);
+  result += SimpleParser::stringify("z", (float)globalPose_.pose.position.z);
+  result += SimpleParser::stringify("x", (float)globalPose_.pose.position.x); 
+  result += SimpleParser::stringify("y", (float)globalPose_.pose.position.y); 
+  result += SimpleParser::stringify("roll", (float)globalRPY_.vector.x);
+  result += SimpleParser::stringify("pitch", (float)globalRPY_.vector.y); 
+  result += SimpleParser::stringify("yaw", (float)globalRPY_.vector.z); 
+  result += SimpleParser::stringify("speedGlobalX", (float)globalSpeed_.twist.linear.x); 
+  result += SimpleParser::stringify("speedGlobalY", (float)globalSpeed_.twist.linear.y); 
+
+
 
   return result;
 }
 void TORCSROSClient::sensorsMsgFromString(std::string torcs_string){
   torcs_sensors_.header.stamp = ros::Time::now();
+  globalSpeed_.header.stamp = ros::Time::now();
+  globalSpeed_.header.frame_id = "world";
+  globalPose_.header.stamp = ros::Time::now();
+  globalPose_.header.frame_id = "world";
+  globalRPY_.header.stamp = ros::Time::now();
+  globalRPY_.header.frame_id = "world";
+
 
   float angle;
   SimpleParser::parse(torcs_string, "angle", angle);
@@ -190,19 +212,19 @@ void TORCSROSClient::sensorsMsgFromString(std::string torcs_string){
   float curLapTime;
   SimpleParser::parse(torcs_string, "curLapTime", curLapTime);
   torcs_sensors_.currentLapTime = curLapTime;
-  
+
   float damage;
   SimpleParser::parse(torcs_string, "damage", damage);
   torcs_sensors_.damage = damage;
-  
+
   float distFromStart;
   SimpleParser::parse(torcs_string, "distFromStart", distFromStart);
   torcs_sensors_.distFromStart = distFromStart;
-  
+
   float distRaced;
   SimpleParser::parse(torcs_string, "distRaced", distRaced);
   torcs_sensors_.distRaced = distRaced;
-  
+
   float fuel;
   SimpleParser::parse(torcs_string, "fuel", fuel);
   torcs_sensors_.fuel = fuel;
@@ -232,14 +254,51 @@ void TORCSROSClient::sensorsMsgFromString(std::string torcs_string){
   {
     torcs_sensors_.wheelSpinVel[i] = wheelSpinVel_[i];
   }
-  
+
   float z;
   SimpleParser::parse(torcs_string, "z", z);
-  torcs_sensors_.z = z;
+  torcs_sensors_.z = z; //depreceated
+  globalPose_.pose.position.z = z;
+  float x;
+  SimpleParser::parse(torcs_string, "x", x);
+  globalPose_.pose.position.x = x;
+
+  float y;
+  SimpleParser::parse(torcs_string, "y", y);
+  globalPose_.pose.position.y = y;
+
+  float roll;
+  SimpleParser::parse(torcs_string, "roll", roll);
+  globalRPY_.vector.x = roll;
+
+  float pitch;
+  SimpleParser::parse(torcs_string, "pitch", pitch);
+  globalRPY_.vector.y = pitch;
+
+  float yaw;
+  SimpleParser::parse(torcs_string, "yaw", yaw);
+  globalRPY_.vector.z = yaw;
+
+  //convert roll pitch yaw to quaternion for geometry message
+  geometry_msgs::Quaternion quat_broadcast = tf::createQuaternionMsgFromRollPitchYaw(roll, pitch, yaw);
+  globalPose_.pose.orientation = quat_broadcast;
+
+
+  float speedGX;
+  SimpleParser::parse(torcs_string, "speedGlobalX", speedGX);
+  globalSpeed_.twist.linear.x = speedGX;
+
+  float speedGY;
+  SimpleParser::parse(torcs_string, "speedGlobalY", speedGY);
+  globalSpeed_.twist.linear.y = speedGY;
+
+  
+  
 
   SimpleParser::parse(torcs_string, "focus", focus_array_, config_.num_focus_ranges);
   laserMsgFromFloatArray(focus_array_, focus_);
 
+  SimpleParser::parse(torcs_string, "opponents", opponents_array_, config_.num_opponents_ranges);
   laserMsgFromFloatArray(opponents_array_, opponents_);
 
   SimpleParser::parse(torcs_string, "track", track_array_, config_.num_track_ranges);
@@ -256,7 +315,7 @@ void TORCSROSClient::sensorsMsgFromString(std::string torcs_string){
 
 }
 
-sensor_msgs::LaserScan TORCSROSClient::initRangeFinder(std::string frame, double angle_min, double angle_max, 
+sensor_msgs::LaserScan TORCSROSClient::initRangeFinder(std::string frame, double angle_min, double angle_max,
                                                        double range_min, double range_max, int ranges_dim)
 {
   sensor_msgs::LaserScan result = sensor_msgs::LaserScan();
@@ -273,7 +332,7 @@ sensor_msgs::LaserScan TORCSROSClient::initRangeFinder(std::string frame, double
   result.ranges.resize(ranges_dim, 0);
 
   return result;
-}                                                       
+}
 void TORCSROSClient::laserMsgToFloatArray(sensor_msgs::LaserScan scan, float* result)
 {
   int size = scan.ranges.size();
@@ -344,10 +403,25 @@ void TORCSROSClient::update()
       // now publish the created ROS messages
       ctrl_pub_.publish(torcs_ctrl_);
       torcs_sensors_pub_.publish(torcs_sensors_);
+      globalSpeed_pub_.publish(globalSpeed_);
+      globalPose_pub_.publish(globalPose_);
+      globalRPY_pub_.publish(globalRPY_);
       track_pub_.publish(track_);
       opponents_pub_.publish(opponents_);
       focus_pub_.publish(focus_);
       speed_pub_.publish(speed_);
+
+      //Broadcast tf:Broadcast
+      static tf::TransformBroadcaster broadcast; //broadcast object
+      tf::Transform base_link; //car frame in world coordinates
+      base_link.setOrigin(tf::Vector3(globalPose_.pose.position.x, globalPose_.pose.position.y, globalPose_.pose.position.z)); //origin is offset of world origin
+      tf::Quaternion quat_base; //quaternion object used in tf to calculate rotation matrix
+      quat_base.setRPY(globalRPY_.vector.x, globalRPY_.vector.y, globalRPY_.vector.z); //set rotation by roll pitch yaw
+      base_link.setRotation(quat_base); //rotate base_link
+      broadcast.sendTransform(tf::StampedTransform(base_link, ros::Time::now(), "world", "base_link")); //broadcast base_link
+
+
+
       // create string from subscribed ctrl msg
       std::string action = ctrlMsgToString();
       memset(buf_, 0x0, UDP_MSGLEN);

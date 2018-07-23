@@ -405,7 +405,7 @@ void TORCSROSDriveCtrl::getParams()
   if(!pnh_.hasParam("wheelRadius"))
   {
     ROS_WARN("No parameter wheelRadius on parameter server. Using default value [{0.3306,0.3306,0.3276,0.3276}].");
-    int mydoubles[] = {0.3306,0.3306,0.3276,0.3276};
+    double mydoubles[] = {0.3306, 0.3306, 0.3276, 0.3276};
     std::vector<double> wheelRadius_default(mydoubles, mydoubles + sizeof(mydoubles) / sizeof(double) );
     pnh_.setParam("wheelRadius", wheelRadius_default);
     config_.wheelRadius = wheelRadius_default;

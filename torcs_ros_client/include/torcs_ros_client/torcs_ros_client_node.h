@@ -31,6 +31,9 @@ using namespace std;
 #include <geometry_msgs/TwistStamped.h>
 #include <torcs_msgs/TORCSCtrl.h>
 #include <torcs_msgs/TORCSSensors.h>
+#include <tf/tf.h>
+#include <tf/transform_broadcaster.h> //Used to broadcast frame 
+#include <tf/transform_datatypes.h> //Used to transform roll/pitch/yaw to geometry_msgs::quaternion
 
 #include <SimpleParser.h>
 
@@ -55,6 +58,10 @@ private:
   sensor_msgs::LaserScan opponents_;
   sensor_msgs::LaserScan focus_;
   geometry_msgs::TwistStamped speed_;
+  geometry_msgs::TwistStamped globalSpeed_; //car speed in reference to world frame
+  geometry_msgs::PoseStamped globalPose_; //car pose in reference to world frame 
+  geometry_msgs::Vector3Stamped globalRPY_; //roll pitch yaw of car in reference to world frame
+
   float wheelSpinVel_[4];
   float* track_array_;
   float* opponents_array_; 
@@ -95,6 +102,9 @@ public:
   ros::Publisher focus_pub_;
   ros::Publisher speed_pub_;
   ros::Publisher debug_pub_;
+  ros::Publisher globalSpeed_pub_;
+  ros::Publisher globalPose_pub_;
+  ros::Publisher globalRPY_pub_; //redundant, as information is present in quaternion of pose
 
   TORCSROSClient();
   ~TORCSROSClient();
