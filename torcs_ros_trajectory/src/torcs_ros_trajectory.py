@@ -44,6 +44,8 @@ class vec4():
     def __getitem__(self, i):
         vec = [self.x, self.y, self.z, self.w]
         return vec[i]
+    
+
 
 #ROS node functionality
 class TrajectoryPublish():
@@ -77,6 +79,7 @@ class TrajectoryPublish():
         self.y_vals, self.x_vals = [], [] #declaration needed as set_trajectories throws error otherwise
         [self.x_vals, self.y_vals] = Trajectory_generation.EgoTrajectories(self.f_lateralDist, 
             self.f_longitudinalDist, self.n_amount, False)
+        
         self.set_trajectories() #initialize trajectories
 
         #### remaining parameters ####
@@ -92,6 +95,8 @@ class TrajectoryPublish():
         
     def set_trajectories(self):
         ########## Path version of trajectories ##############
+        
+        
         self.path_msgs = [] #cleanup list for new calculation        
         ctime = rospy.Time.now() #assign all paths the same time
         #create one message for each trajectory
@@ -100,6 +105,8 @@ class TrajectoryPublish():
             self.path_msgs[-1].header.stamp = ctime #assign same timestamp to all trajectories
             self.path_msgs[-1].header.frame_id = "base_link" #definition is in base_link to account for vehicles position and orientation
             #create poses for current path message 
+            
+            headings_cur = Trajectory_generation.ComputeHeadingsInRad(self.x_vals, self.y_vals[f])
             for ff in range (0, len(self.x_vals)):
                 pose = PoseStamped() #PoseStamped needed for Path() message
                 pose.header.stamp = ctime #Assign all poses same timestamp as path
@@ -110,7 +117,21 @@ class TrajectoryPublish():
                 #roll pitch and yaw needed for pose orientation, not filled as of yet
                 roll = 0 #as trajectories are defined in 2D we can neglect this
                 pitch = 0 #as trajectories are defined in 2D we can neglect this
-                yaw = 0 #angle about z, orientation of current pose should be looking towards next post location
+                yaw = headings_cur[ff] #angle about z, orientation of current pose should be looking towards next post location
+#                print(yaw)
+#                yaw = 0
+                quaternion = tf.transformations.quaternion_about_axis(-yaw-np.pi/2, (0, 0, 1))
+#                quaternion2 = tf.transformations.quaternion_from_euler(roll, pitch, yaw)
+#                print("##xxxxxxxxxx###")
+#                print(quaternion)
+#                print("##yyyyyyyyyy###")
+#                print(quaternion2)
+                
+                pose.pose.orientation.x = quaternion[0]
+                pose.pose.orientation.y = quaternion[1]
+                pose.pose.orientation.z = quaternion[2]
+                pose.pose.orientation.w = quaternion[3]
+                
 #                pose.pose.rotation = tf.transformations.quaternion_from_euler(roll, pitch, yaw) #convert rpy to quaternion
                 self.path_msgs[-1].poses.append(pose)#append pose to current path message
         
@@ -130,6 +151,7 @@ class TrajectoryPublish():
         for pathCounter in range(0, len(self.path_msgs)): #iterate over all trajectories
             self.pathWorld_msgs.append(copy.deepcopy(self.path_msgs[pathCounter])) #create a new message with a trajectory as content
             self.pathWorld_msgs[-1].header.frame_id = 'world' #set that trajectories frame to world instead
+            self.pathWorld_msgs[-1].header.stamp = self.time
             #transform trajectory poses to current base_link position
             for pose in self.pathWorld_msgs[-1].poses:
                 pose.header.frame_id = 'world' #set PoseStamped Header
@@ -141,8 +163,15 @@ class TrajectoryPublish():
                 pose.pose.position.x = position_rotated[0] + self.ros_trans.x 
                 pose.pose.position.y = position_rotated[1] + self.ros_trans.y
                 pose.pose.position.z = position_rotated[2] + self.ros_trans.z
+                quaternion_base = np.asarray([pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z, 
+                                         pose.pose.orientation.w]) #make a homogenous position vector, needed as rot. matrix is 4x4
+                quaternion_rotated = tf.transformations.quaternion_multiply(quaternion_base, self.ros_rot)
+#                pose.pose.orientation = tf.transformations.quaternion_multiply(quaternion, self.ros_rot)
+                pose.pose.orientation.x = quaternion_rotated[0]
+                pose.pose.orientation.y = quaternion_rotated[1]
+                pose.pose.orientation.z = quaternion_rotated[2]
+                pose.pose.orientation.w = quaternion_rotated[3]
                 
-
     #callback function that gets the baselink transformation and publishes the transformed trajectories in the world frame          
     def sub_frame_callback(self, msg_frame):
         frame_idx = 0 #index to identify the proper transformation if there is more than the world and base_link frames avalaible
@@ -161,7 +190,7 @@ class TrajectoryPublish():
             self.ros_rot.Set(msg_frame.transforms[frame_idx]) #Get rotation from published ros message
           
         self.transform_trajectories() #transform trajectories to world coordinates
-        self.mark_trajectory_i_as_active(8) #set a chosen trajectory as active
+#        self.mark_trajectory_i_as_active(8) #set a chosen trajectory as active
 
         #publish all trajectories apart from selected one (message is empty)
         for path_msg, path_pub in zip (self.pathWorld_msgs, self.pub_allPaths):
@@ -169,7 +198,7 @@ class TrajectoryPublish():
                 path_pub.publish(path_msg)
 
         
-        self.pub_pathSelected.publish(self.selectedTrajectory_msg) #publish selected trajectory
+#        self.pub_pathSelected.publish(self.selectedTrajectory_msg) #publish selected trajectory
         #print some kind of indicator that a new step has been reached
         randint = np.random.randint(7)
         print(int(randint)*".")

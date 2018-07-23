@@ -10,6 +10,16 @@ import matplotlib.pyplot as plt
 import scipy.interpolate
 import numpy as np
 
+def vangle(v1, v2):
+    retval = np.arccos(np.clip(np.dot(v1, v2), -1, 1)) 
+    print(retval)
+    return retval #clips numerical imprecision to -1 and 1 in order to adhere to arccos bounds
+
+def vangle2(v1, v2):
+    dot = v1[0]*v2[0]+v1[1]*v2[1] #np.dot
+    det = v1[0]*v2[1]-v1[1]*v2[0] #np.linalg.det
+    angle = np.arctan2(det, dot)
+    return angle
 
 def curve(a1, a2, x):
     y = s0+a1*x*x+a2*x
@@ -150,6 +160,24 @@ def CompareThirdOrderPolynomials():
     plt.title('c')
     plt.show()
     
+    
+def ComputeHeadingsInRad(xvals, yvals):
+    headings = []
+    y_axis = np.array([0, -1])
+    for n in range(0, len(xvals)-1): #manually set last heading to same as before
+        v1 = np.array([xvals[n], yvals[n]])
+        v2 = np.array([xvals[n+1], yvals[n+1]])
+        headings.append(vangle2(v2-v1, y_axis))
+    headings.append(headings[-1])
+#    print(len(xvals), len(yvals))
+    return headings
+
+#v1 = np.array([xvals[0], yvals[0][0]])    
+#v2 = np.array([xvals[1], yvals[0][1]]) 
+#
+#plt.plot([0, 0.25],[0, -0.009])
+#plt.plot([0, 1],[0, 0])
+#plt.axis('equal')
 #EgoTrajectories()
 #CompareSecondOrderPolynomials()
 #CompareThirdOrderPolynomials()
