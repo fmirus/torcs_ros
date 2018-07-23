@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(torcs_ros_trajectory)
+project(torcs_ros_trajectory_gen)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)

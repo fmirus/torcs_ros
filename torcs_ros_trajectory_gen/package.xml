@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>torcs_ros_trajectory</name>
+  <name>torcs_ros_trajectory_gen</name>
   <version>0.0.0</version>
   <description>The torcs_ros_trajectory package</description>
 

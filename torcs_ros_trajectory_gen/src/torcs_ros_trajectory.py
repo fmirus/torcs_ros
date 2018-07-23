@@ -155,6 +155,7 @@ class TrajectoryPublish():
             #transform trajectory poses to current base_link position
             for pose in self.pathWorld_msgs[-1].poses:
                 pose.header.frame_id = 'world' #set PoseStamped Header
+                pose.header.stamp = self.time
                 #rotate pose by quaternion with a rotation matrix
                 #results are same when comparing to rotating v1 by quaternion q1 with q1*v1*(q1^*)
                 position_homogenous = np.asarray([pose.pose.position.x, pose.pose.position.y, pose.pose.position.z, 1]) #make a homogenous position vector, needed as rot. matrix is 4x4
@@ -164,9 +165,9 @@ class TrajectoryPublish():
                 pose.pose.position.y = position_rotated[1] + self.ros_trans.y
                 pose.pose.position.z = position_rotated[2] + self.ros_trans.z
                 quaternion_base = np.asarray([pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z, 
-                                         pose.pose.orientation.w]) #make a homogenous position vector, needed as rot. matrix is 4x4
-                quaternion_rotated = tf.transformations.quaternion_multiply(quaternion_base, self.ros_rot)
-#                pose.pose.orientation = tf.transformations.quaternion_multiply(quaternion, self.ros_rot)
+                                         pose.pose.orientation.w]) #numpy array for orientation quaternion
+                quaternion_rotated = tf.transformations.quaternion_multiply(quaternion_base, self.ros_rot) #rotate pose by baselink orientation
+                #write new data to Pose Message
                 pose.pose.orientation.x = quaternion_rotated[0]
                 pose.pose.orientation.y = quaternion_rotated[1]
                 pose.pose.orientation.z = quaternion_rotated[2]
@@ -211,4 +212,7 @@ if __name__ == '__main__':
     rospy.init_node('Trajectory_Publisher')
     TrajectoryPublisher = TrajectoryPublish()
     rospy.spin() 
+    
+#    tf.transformations.euler_from_quaternion(quat) #results in angle
+#    compare current global yaw to [2] of previous = heading error
 

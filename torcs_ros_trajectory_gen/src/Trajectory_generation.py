@@ -172,12 +172,6 @@ def ComputeHeadingsInRad(xvals, yvals):
 #    print(len(xvals), len(yvals))
     return headings
 
-#v1 = np.array([xvals[0], yvals[0][0]])    
-#v2 = np.array([xvals[1], yvals[0][1]]) 
-#
-#plt.plot([0, 0.25],[0, -0.009])
-#plt.plot([0, 1],[0, 0])
-#plt.axis('equal')
 #EgoTrajectories()
 #CompareSecondOrderPolynomials()
 #CompareThirdOrderPolynomials()
