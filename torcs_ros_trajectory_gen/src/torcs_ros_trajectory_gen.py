@@ -18,33 +18,34 @@ from nav_msgs.msg import Path
 import Trajectory_generation
 import copy
 
-import os
-import sys
-cwd = os.getcwd()
-sys.path.append(cwd[:-29] + "common")
 
-from bzVector import vec3, vec4 #2d and 3d vector definitions    
+import sys
+import rospkg
+cwd = rospkg.RosPack().get_path('torcs_ros_trajectory_gen')
+sys.path.append(cwd[:-24] + "common")
+print(cwd[:-24] + "common")
+from bzVector import vec3, vec4 #2d and 3d vector definition; ERROR; roslaunch does not work with cwd
 
 
 #ROS node functionality
 class TrajectoryPublish():
     def __init__(self, frame_topic = "/tf"):#frame_topic="/torcs_ros/torcs_global_pose"):
+        #### variables ####
+        self.time = rospy.Time.now() #to be used as reference time when performing transformations; not working yet
+        self.tf_trans = [] #a transformations translatory values received from tr TransformListener
+        self.tf_rot = [] #a transformations rotatory values received from tr TransformListener
+        self.ros_trans = vec3() #a transformations translatory values received from ros subscription
+        self.ros_rot = vec4() #a transformations rotatory values received from ros subscription
+        self.newest_ros_transform = TransformStamped();  
+        
         #### parameters for trajectory generation ####
         self.f_lateralDist = 10 #lateral spread in width between terminal points in metre
         self.f_longitudinalDist = 10  #planning horizon in metre
         self.n_amount = 10 #amount of trajectories per class
-        
-        #### subscribers ####
-        self.sub_frame = rospy.Subscriber(frame_topic, TFMessage, self.sub_frame_callback, queue_size=1) #a subscriber that manually subscribes to the published frames
-        self.frame = tf.TransformListener() #tf "Subscriber" that can grab different transformations on call
-        
-        #### publishers ####
-        self.pub_trajectory = rospy.Publisher("/torcs_ros/trajectory", Marker, queue_size=1) #publisher that publishes trajectories as Markers //depreceated
-         #list of publishers of trajectories in Path() format, one for each trajectory
+
         self.pub_allPaths = []
         [self.pub_allPaths.append(rospy.Publisher("/torcs_ros/trajectory"+str(x+1), Path, queue_size=1)) for x in range(0, self.n_amount*2)]
         self.pub_pathSelected = rospy.Publisher("/torcs_ros/trajectorySelected", Path, queue_size=1) #publisher for currently selected trajectory to be followed
-        self.fram_pub = tf.TransformBroadcaster()
         #### message definitions #####
         self.trajectoryBaselink_msgs = [] #trajectories in baselink coordinates (static) //depreceated
         self.trajectoryWorld_msgs = [] #trajectories in world coordinates (static) //depreceated
@@ -61,13 +62,13 @@ class TrajectoryPublish():
         
         self.set_trajectories() #initialize trajectories
 
-        #### remaining parameters ####
-        self.time = rospy.Time.now() #to be used as reference time when performing transformations; not working yet
-        self.tf_trans = [] #a transformations translatory values received from tr TransformListener
-        self.tf_rot = [] #a transformations rotatory values received from tr TransformListener
-        self.ros_trans = vec3() #a transformations translatory values received from ros subscription
-        self.ros_rot = vec4() #a transformations rotatory values received from ros subscription
-        self.newest_ros_transform = TransformStamped();
+        
+        #### subscribers ####
+        self.sub_frame = rospy.Subscriber(frame_topic, TFMessage, self.sub_frame_callback, queue_size=1) #a subscriber that manually subscribes to the published frames
+        
+        #### publishers ####
+        self.pub_trajectory = rospy.Publisher("/torcs_ros/trajectory", Marker, queue_size=1) #publisher that publishes trajectories as Markers //depreceated
+         #list of publishers of trajectories in Path() format, one for each trajectory
 
         
         
@@ -178,19 +179,21 @@ class TrajectoryPublish():
                 path_pub.publish(path_msg)
 
         
-#        self.pub_pathSelected.publish(self.selectedTrajectory_msg) #publish selected trajectory
-        #print some kind of indicator that a new step has been reached
-        randint = np.random.randint(7)
-        print(int(randint)*".")
 
-
+#        randint = np.random.randint(7)
+#        print(int(randint)*".")
 
         
         
 if __name__ == '__main__':
     rospy.init_node('Trajectory_Publisher')
+    rospy.wait_for_message("/tf", TFMessage)
     TrajectoryPublisher = TrajectoryPublish()
-    rospy.spin() 
+    rospy.spin()
+#    rospy.
+#    while(rospy.is_shutdown() == False):
+#        msg = Path()
+#        TrajectoryPublisher.pub_allPaths[0].publish(msg)
     
 #    tf.transformations.euler_from_quaternion(quat) #results in angle
 #    compare current global yaw to [2] of previous = heading error
