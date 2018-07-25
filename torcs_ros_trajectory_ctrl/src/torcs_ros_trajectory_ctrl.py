@@ -8,6 +8,7 @@ Created on Mon Jul 23 15:34:21 2018
 
 import numpy as np
 import rospy
+import subprocess
 import tf
 
 
@@ -32,7 +33,7 @@ import bzConsoleIndicators
 class FollowTrajectory():
     def __init__(self, trajectory_topic="/torcs_ros/trajectorySelected", ctrl_topic = "/torcs_ros/ctrl_cmd", 
                  frame_topic="/tf", sensors_topic="/torcs_ros/sensors_state"):
-        
+        self.sensors_topic = sensors_topic
 
         #### subscription parameters ####
         self.ros_trans = vec3() #global position of baselink frame
@@ -127,8 +128,7 @@ class FollowTrajectory():
 #            self.ctrl_steering = (self.sen_angle - self.sen_trackpos*self.param_kappa)/self.param_steerLock #control towards midline
             
             #dist to trajectory has to have a sign
-            
-            self.ctrl_steering = (f_deltaHeading + f_distToTraj/20*self.param_kappa)/self.param_steerLock
+            self.ctrl_steering = (f_deltaHeading + f_distToTraj/2*self.param_kappa)/self.param_steerLock
             
             #limit acceleration signal to achieve low constant speeds
             if (self.sen_rpm < 4000 or self.sen_gear == 0): #allow high enough rpm if car is in neutral gear (start of race)
@@ -137,23 +137,21 @@ class FollowTrajectory():
                 self.ctrl_accel = 0
                 
             self.ctrl_gear = SetGearFromLUT(self.sen_gear, self.sen_rpm) #gear lookup
-#            if (abs(self.sen_trackpos) > 1):
-#                msg_ctrl.meta = 1
-#            else:
-#                msg_ctrl.meta = 0
+            
             #add control data to message container
             msg_ctrl.accel = self.ctrl_accel
             msg_ctrl.steering = self.ctrl_steering
             msg_ctrl.brake = self.ctrl_brake #set to 0
             msg_ctrl.gear = self.ctrl_gear
-            
             self.pub_ctrl.publish(msg_ctrl) #publish
             
+
             if (f_distToEnd < 1):
                 self.needForAction_msg.data = True
-#            else:
-#                self.needForAction_msg.data = False
+
             self.pub_needTrajectory.publish(self.needForAction_msg)
+            self.CheckForOutOfTrack()
+
     #        bzConsoleIndicators.IamWorking() #indicate that node is running and messages are sent
         else:
             self.needForAction_msg.data = True
@@ -166,6 +164,28 @@ class FollowTrajectory():
         [roll_tj, pitch_tj, yaw_tj] = tf.transformations.euler_from_quaternion(quad_trajectory)
         return yaw_tj-yaw_bl
         
+    def CheckForOutOfTrack(self):
+        if (abs(self.sen_trackpos) > 1): #if vehicle is off track, restart 
+                msg_ctrl = TORCSCtrl() #message container
+                msg_ctrl.meta = 1 #set restart flag
+                #ensure last sent control command is no movement
+                msg_ctrl.accel = 0 
+                msg_ctrl.steering = 0
+                msg_ctrl.brake = 1
+                self.pub_ctrl.publish(msg_ctrl) #demand restart
+                
+                self.trajectory = Path() #reset selected trajectory to be empty
+                
+                os.system("rosnode kill /torcs_ros/torcs_ros_client_node") #kills client node with terminal command
+                print("Client node is being restarted as vehicle was off track")
+                rospy.sleep(1)
+                os.system("roslaunch torcs_ros_client torcs_ros_client_ns.xml") #relaunch client node
+                rospy.wait_for_message(self.sensors_topic, TORCSSensors) #wait for a message from client node to ensure it has restarted
+                #notify that new trajectory has to be selected as game has been resarted
+                self.needForAction_msg.data = True 
+                self.pub_needTrajectory.publish(self.needForAction_msg)
+                return;
+
             
 if __name__ == "__main__":
     rospy.init_node("Trajectory_Follow_Control")

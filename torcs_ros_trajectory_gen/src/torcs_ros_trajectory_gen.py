@@ -20,7 +20,6 @@ from std_msgs.msg import Bool
 import Trajectory_generation
 import copy
 
-
 import sys
 import rospkg
 cwd = rospkg.RosPack().get_path('torcs_ros_trajectory_gen')
@@ -221,7 +220,7 @@ class TrajectoryPublish():
         self.b_TrajectoryNeeded = msg_action.data
         
     def selectAndPublishTrajectory(self):
-        self.transform_one_trajectories(8) #transform trajectories to world coordinates
+        self.transform_one_trajectories(np.random.randint(0, self.n_amount*2+1)) #transform trajectories to world coordinates
         self.mark_trajectory_i_as_active(0) #set a chosen trajectory as active
 
         #publish all trajectories apart from selected one (message is empty)

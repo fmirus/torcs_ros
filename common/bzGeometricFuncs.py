@@ -67,7 +67,16 @@ def BaseLinkToTrajectory(baselink_x, baselink_y, trajectory_poses):
                 idx -= 1
                 f_projLengthPointAfter = f_projLengthPointBefore
 
-
+    #so far only the distance has been calculated. the side of the trajectory the baselink is located on has to be accounted for as well
+    #in 2D this can be determined by the sign of the cross product of two vectors
+    #helpfull link:
+    #https://math.stackexchange.com/questions/274712/calculate-on-which-side-of-a-straight-line-is-a-given-point-located
+    #AB is the line segment of the polyline where the baselink point has been projected to (where B is idx, and A is idx-1)
+    #AP is the line from the first point to the baselink point 
+    AB = np.array((trajectory_xvals[idx]-trajectory_xvals[idx-1], trajectory_yvals[idx]-trajectory_yvals[idx-1])) 
+    AP = np.array((baselink_x-trajectory_xvals[idx-1], baselink_y-trajectory_yvals[idx-1]))
+    f_dist = f_dist*np.sign(np.cross(AB, AP))*-1
+    
     return [f_dist, idx, f_distToEnd]
 
 
