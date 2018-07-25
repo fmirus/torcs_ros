@@ -87,6 +87,7 @@ def EgoTrajectories(f_lateralDist, f_longitudinalDist, n_amount, b_verbose):
     Traj_Cubic = []
     Traj_Quad = []
     
+    
     for s1 in np.linspace(-float(f_lateralDist)/2, float(f_lateralDist)/2, 10):
         x = [0, f_longitudinalDist]
         y = [0, s1]
@@ -120,8 +121,8 @@ def EgoTrajectories(f_lateralDist, f_longitudinalDist, n_amount, b_verbose):
         plt.xlabel('[m]')
         plt.ylabel('[m]')
         plt.show()
-        
-    return [xnew, np.concatenate((Traj_Cubic, Traj_Quad), axis=0)]
+
+    return [xnew, np.concatenate((np.zeros((1,len(xnew))), Traj_Cubic, Traj_Quad), axis=0)] #first parameter is default option
 
 
 def CompareSecondOrderPolynomials():

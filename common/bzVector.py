@@ -22,10 +22,16 @@ class vec4():
     def __init__(self, i_x=0, i_y=0, i_z=0, i_w=1):
         self.x,self.y,self.z,self.w = i_x,i_y,i_z,i_w
     def Set(self, msg_frame):
-        self.x = msg_frame.transform.rotation.x  
-        self.y = msg_frame.transform.rotation.y
-        self.z = msg_frame.transform.rotation.z
-        self.w = msg_frame.transform.rotation.w
+        try:
+            self.x = msg_frame.transform.rotation.x  
+            self.y = msg_frame.transform.rotation.y
+            self.z = msg_frame.transform.rotation.z
+            self.w = msg_frame.transform.rotation.w
+        except:
+            self.x = msg_frame.pose.orientation.x  
+            self.y = msg_frame.pose.orientation.y
+            self.z = msg_frame.pose.orientation.z
+            self.w = msg_frame.pose.orientation.w
     def __getitem__(self, i):
         vec = [self.x, self.y, self.z, self.w]
         return vec[i]

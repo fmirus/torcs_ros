@@ -25,20 +25,24 @@ def BaseLinkToTrajectory(baselink_x, baselink_y, trajectory_poses):
     f_dist = geoBaselink.distance(geoTrajectory) #distance between trajectory and baselink origin
     f_projLength = geoTrajectory.project(geoBaselink, normalized=True) #projection of Baselink to closest point on trajectory with distance f_dist
     
+    f_distToEnd = geo.Point(geoTrajectory.coords[-1]).distance(geoBaselink)
+    
     b_DirectionFound = False
     nDirection = 0
     idx = int(round(len(geoTrajectory.coords)*f_projLength))
     while(True):
 #        if idx == 0: #is starting point
 #            idx += 1
-        if idx == len(geoTrajectory.coords):
+        if idx == len(geoTrajectory.coords)-1:
             idx -= 1
+            print("at estimated end")
         else:
             if(b_DirectionFound == False):
-                print("x")
                 f_projLengthPointBefore = geoTrajectory.project(geo.Point(geoTrajectory.coords[idx]), normalized=True)
-                print("y")
-                f_projLengthPointAfter = geoTrajectory.project(geo.Point(geoTrajectory.coords[idx+1]), normalized=True)
+                try:
+                    f_projLengthPointAfter = geoTrajectory.project(geo.Point(geoTrajectory.coords[idx+1]), normalized=True)
+                except:
+                    print("ERROR idx: " +str(idx))
             elif(nDirection == 1):
                 f_projLengthPointAfter = geoTrajectory.project(geo.Point(geoTrajectory.coords[idx+1]), normalized=True)
             else:
@@ -57,12 +61,14 @@ def BaseLinkToTrajectory(baselink_x, baselink_y, trajectory_poses):
             if(nDirection == 1):
                 idx += 1
                 f_projLengthPointBefore = f_projLengthPointAfter
+                if(idx == len(geoTrajectory.coords)-1):
+                    break; #last point has been reached
             elif(nDirection == -1):
                 idx -= 1
                 f_projLengthPointAfter = f_projLengthPointBefore
 
 
-    return [f_dist, idx]
+    return [f_dist, idx, f_distToEnd]
 
 
 def PathToValues(trajectory_poses):
