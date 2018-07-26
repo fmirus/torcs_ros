@@ -13,6 +13,7 @@ This is a ROS implementation of the client and driver from the [TORCS SCR C++ cl
 
  - Run TORCS: ```torcs``` or ```torcs -noisy``` if you want noisy sensors (see the [SCR-Manual](https://arxiv.org/pdf/1304.1672.pdf) for details)
  - Run the ROS components in this repository: ```roslaunch torcs_ros_bringup torcs_ros.launch```. If you want to use your own driver instead of the simple driver in ```torcs_ros_drive_ctrl```, run ```roslaunch torcs_ros_bringup torcs_ros.launch driver:=false``` (make sure you remap your topics correctly).
+ - If any of the nodes cannot be launched, ensure that the permissons for the python scripts in the respective src folders are marked as "allow executing file as programm"
 
 ## Description of individual packages
 
@@ -35,3 +36,15 @@ this is a ROS implementation of the original [SRC C++ client](https://sourceforg
 ### torcs_ros_drive_ctrl
 
 this is a separated implementation of the SimpleDriver contained in the original [SRC C++ client](https://sourceforge.net/projects/cig/files/SCR%20Championship/Client%20C%2B%2B/). It subscribes to the sensor messsage published by the ```torcs_ros_client```, generates simple drive commands and publishes them as ```TORCSCtrl``` messages.
+
+### torcs_ros_trajectory_gen
+
+this package generates a variety of predefined trajectories and publishes them in both the world frame and the baselink. New trajectories are created whenever a "/torcs_ros/ctrl_signal_action" signal is received as true
+
+### torcs_ros_trajectory_ctrl
+
+this package presents an alternative controller that receives a trajectory as a geometry_msg/Path msg and sets the steering accordingly. Velocity is set to a constant low speed of approx. 35 km/h
+
+### common
+
+not an actual ros package. This folder holds generic script files that may be of interest to more than one specific package

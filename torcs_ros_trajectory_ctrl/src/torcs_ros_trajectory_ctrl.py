@@ -68,7 +68,11 @@ class FollowTrajectory():
         #### ensure all dependent nodes are up and running ####
         rospy.wait_for_message(frame_topic, TFMessage) #wait until frame is published
         rospy.wait_for_message(sensors_topic, TORCSSensors) #also wait until sensors are published 
-        
+ 
+        #### publications ####
+        self.pub_ctrl = rospy.Publisher(ctrl_topic, TORCSCtrl, queue_size=10) #publish control commands
+        self.pub_needTrajectory = rospy.Publisher("/torcs_ros/ctrl_signal_action", Bool, queue_size=1) #publish a control signal that indicates that a  new trajectory is needed
+  
         #### subscriptions ####
         self.sub_trajectory = rospy.Subscriber(trajectory_topic, Path, self.trajectory_callback) #subscribe to selected trajectory in world frame
         self.sub_sensors = rospy.Subscriber(sensors_topic, TORCSSensors, self.sensors_callback) #subscribe to sensor values for evaluation
@@ -76,11 +80,7 @@ class FollowTrajectory():
         self.sub_speed = rospy.Subscriber(speed_topic, TwistStamped, self.speed_callback)
         
         
-        #### publications ####
-        self.pub_ctrl = rospy.Publisher(ctrl_topic, TORCSCtrl, queue_size=10) #publish control commands
-        self.pub_needTrajectory = rospy.Publisher("/torcs_ros/ctrl_signal_action", Bool, queue_size=1) #publish a control signal that indicates that a  new trajectory is needed
 
-  
                 
 
 

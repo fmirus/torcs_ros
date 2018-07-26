@@ -24,7 +24,7 @@ import sys
 import rospkg
 cwd = rospkg.RosPack().get_path('torcs_ros_trajectory_gen')
 sys.path.append(cwd[:-24] + "common")
-print(cwd[:-24] + "common")
+#print(cwd[:-24] + "common")
 from bzVector import vec3, vec4 #2d and 3d vector definition; ERROR; roslaunch does not work with cwd
 
 
@@ -64,12 +64,11 @@ class TrajectoryPublish():
         self.set_trajectories() #initialize trajectories        
 
         #### publishers ####
-        self.pub_trajectory = rospy.Publisher("/torcs_ros/trajectory", Marker, queue_size=1) #publisher that publishes trajectories as Markers //depreceated
          #list of publishers of trajectories in Path() format, one for each trajectory
-        self.pub_allPaths = []
-        [self.pub_allPaths.append(rospy.Publisher("/torcs_ros/trajectory"+str(x), Path, queue_size=1)) for x in range(0, self.n_amount*2+1)]
-        self.pub_pathSelected = rospy.Publisher("/torcs_ros/trajectorySelected", Path, queue_size=1) #publisher for currently selected trajectory to be followed
-        self.pub_pathSelectedVisual = rospy.Publisher("/torcs_ros/trajectorySelectedVis", Path, queue_size=1)
+        self.pub_allPaths = [] # //depreceated; list of publishers to visualize all possible trajectories
+        [self.pub_allPaths.append(rospy.Publisher("/torcs_ros/trajectory"+str(x), Path, queue_size=1)) for x in range(0, self.n_amount*2+1)] #
+        self.pub_pathSelected = rospy.Publisher("/torcs_ros/trajectorySelected", Path, queue_size=1) #publisher for currently selected trajectory [in world frame]
+        self.pub_pathSelectedVisual = rospy.Publisher("/torcs_ros/trajectorySelectedVis", Path, queue_size=1) #publisher for currently selected trajectory [in baselink frame]
         
         #### subscribers ####
         self.sub_frame = rospy.Subscriber(frame_topic, TFMessage, self.sub_frame_callback, queue_size=1) #a subscriber that manually subscribes to the published frames
@@ -101,14 +100,8 @@ class TrajectoryPublish():
                 roll = 0 #as trajectories are defined in 2D we can neglect this
                 pitch = 0 #as trajectories are defined in 2D we can neglect this
                 yaw = headings_cur[ff] #angle about z, orientation of current pose should be looking towards next post location
-#                print(yaw)
-#                yaw = 0
+
                 quaternion = tf.transformations.quaternion_about_axis(-yaw-np.pi/2, (0, 0, 1))
-#                quaternion2 = tf.transformations.quaternion_from_euler(roll, pitch, yaw)
-#                print("##xxxxxxxxxx###")
-#                print(quaternion)
-#                print("##yyyyyyyyyy###")
-#                print(quaternion2)
                 
                 pose.pose.orientation.x = quaternion[0]
                 pose.pose.orientation.y = quaternion[1]
@@ -127,7 +120,8 @@ class TrajectoryPublish():
         self.selectedTrajectory_msg = copy.copy(self.pathWorld_msgs[self.n_selectedTrajectory]) #Move message to selectedTrajectory publisher message
         self.pathWorld_msgs[self.n_selectedTrajectory].poses = [] #ensure old message does not interfere in visualization
 
-    #manually transform trajectories from baselink to world frame
+    #depreceated; only here for debug purposes
+    #manually transform all trajectories from baselink to world frame
     def transform_trajectories(self):
         self.pathWorld_msgs = [] #cleanup previous message
         self.ros_rot_mat = tf.transformations.quaternion_matrix(self.ros_rot) #calculate rotation matrix from quaternion
@@ -158,7 +152,7 @@ class TrajectoryPublish():
                 pose.pose.orientation.w = quaternion_rotated[3]
 
 
-    #manually transform trajectories from baselink to world frame
+    #manually transform a certain trajectories from baselink to world frame
     def transform_one_trajectories(self, idx):
         self.pathWorld_msgs = [] #cleanup previous message
         self.ros_rot_mat = tf.transformations.quaternion_matrix(self.ros_rot) #calculate rotation matrix from quaternion
@@ -204,18 +198,16 @@ class TrajectoryPublish():
             self.ros_trans.Set(msg_frame.transforms[frame_idx]) #Get translation from published ros message
             self.ros_rot.Set(msg_frame.transforms[frame_idx]) #Get rotation from published ros message
           
-            #idented test
+            #check whether a new trajectory has to be published
             if self.b_TrajectoryNeeded == True:
                 self.selectAndPublishTrajectory()
-    #            print(self.b_TrajectoryNeeded)
-    #            self.b_TrajectoryNeeded = False
+
             
-            self.transformAndPublishVisualization()
-            self.pub_pathSelectedVisual.publish(self.selectedTrajectoryVis_msg)
+            self.transformAndPublishVisualization() #always publish trajectory in baselink frame, as the relative movement has to be compensated for
 
         
         
-    
+    #callback function that identifies whether a new trajectory has to be selected and published
     def sub_needForAction_callback(self, msg_action):
         self.b_TrajectoryNeeded = msg_action.data
         
@@ -231,30 +223,27 @@ class TrajectoryPublish():
         self.pub_pathSelected.publish(self.selectedTrajectory_msg)
 
 
+    #Function that (manually) transforms the trajectory in world coordinates back to the baselink
+    #Transform from base_link to world was: x' = Rx+t [R is rotation matrix and t is translation vector]
+    #Inverse transform therefore is (R^-1)x'-(R^-1)t=x
     def transformAndPublishVisualization(self):
-#        print(len(self.selectedTrajectory_msg.poses)))
-        self.ros_rot_mat = tf.transformations.quaternion_matrix(self.ros_rot)
-        ros_rot_mat_inv = tf.transformations.inverse_matrix(self.ros_rot_mat)
-        self.selectedTrajectoryVis_msg = copy.deepcopy(self.selectedTrajectory_msg)
-#        print(selectedTrajectoryVis_msg.poses[0])
-        self.selectedTrajectoryVis_msg.header.stamp = self.time
-        self.selectedTrajectoryVis_msg.header.frame_id = 'base_link'
-        for pose in self.selectedTrajectoryVis_msg.poses: #inverse transform
-            pose.header.frame_id = 'base_link' #set PoseStamped Header
-            pose.header.stamp = self.time
-            #rotate pose by quaternion with a rotation matrix
-            #results are same when comparing to rotating v1 by quaternion q1 with q1*v1*(q1^*)
+        self.ros_rot_mat = tf.transformations.quaternion_matrix(self.ros_rot) #get R
+        ros_rot_mat_inv = tf.transformations.inverse_matrix(self.ros_rot_mat) #calculate inverse R^-1
+        self.selectedTrajectoryVis_msg = copy.deepcopy(self.selectedTrajectory_msg) #copy trajectory in world coordinates
+        self.selectedTrajectoryVis_msg.header.stamp = self.time #set stamp to time of last received transform 
+        self.selectedTrajectoryVis_msg.header.frame_id = 'base_link' #change frame_id to baselink
+        for pose in self.selectedTrajectoryVis_msg.poses: #transform all pose positions. neglect orientations
+            pose.header.frame_id = 'base_link' #set pose to new frame
+            pose.header.stamp = self.time #adjust time
+            #perform inverse transform
             position_homogenous = np.asarray([pose.pose.position.x, pose.pose.position.y, pose.pose.position.z, 1]) #make a homogenous position vector, needed as rot. matrix is 4x4
-            position_rotated = np.matmul(ros_rot_mat_inv, position_homogenous) #implementation with matrix is neglible faster than quaternion implementation
-#            #translate rotated postion to baselink origin    
-            translation_inv = np.matmul(ros_rot_mat_inv, [self.ros_trans.x, self.ros_trans.y, self.ros_trans.z, 1])
+            position_rotated = np.matmul(ros_rot_mat_inv, position_homogenous) #implementation with matrix is neglible faster than quaternion implementation    
+            translation_inv = np.matmul(ros_rot_mat_inv, [self.ros_trans.x, self.ros_trans.y, self.ros_trans.z, 1]) #calculate inverse translation
+            #apply inverse translation
             pose.pose.position.x = position_rotated[0] - translation_inv[0]
             pose.pose.position.y = position_rotated[1] - translation_inv[1]
             pose.pose.position.z = position_rotated[2] - translation_inv[2]
-#            quaternion_base = np.asarray([pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z, 
-#                                     pose.pose.orientation.w]) #numpy array for orientation quaternion
-
-        
+        self.pub_pathSelectedVisual.publish(self.selectedTrajectoryVis_msg)
 
         
 if __name__ == '__main__':
@@ -262,11 +251,4 @@ if __name__ == '__main__':
     rospy.wait_for_message("/tf", TFMessage)
     TrajectoryPublisher = TrajectoryPublish()
     rospy.spin()
-#    rospy.
-#    while(rospy.is_shutdown() == False):
-#        msg = Path()
-#        TrajectoryPublisher.pub_allPaths[0].publish(msg)
-    
-#    tf.transformations.euler_from_quaternion(quat) #results in angle
-#    compare current global yaw to [2] of previous = heading error
 

@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <launch>
-  <node pkg="torcs_ros_trajectory_gen" type="torcs_ros_trajectory_gen.py" name="Trajectory_Publisher" output="screen">
+  <node pkg="torcs_ros_trajectory_gen" type="torcs_ros_trajectory_gen.py" name="trajectory_generation" output="screen">
   </node>
 </launch>
 
