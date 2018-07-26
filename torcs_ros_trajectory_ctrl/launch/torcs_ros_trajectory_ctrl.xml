@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<launch>
+  <node pkg="torcs_ros_trajectory_ctrl" type="torcs_ros_trajectory_ctrl.py" name="trajectory_ctrl" output="screen">
+  </node>
+</launch>
+
