@@ -56,8 +56,8 @@ def qnet_associative(b_Direct, signal, i_output, label=''):
         nengo.Connection(net.ActionSelection, net.Output)
         
         #fix that one action is always selected
-        net.Hard = nengo.Node(output=1)
-        nengo.Connection(net.Hard, net.ActionSelection[2]) #add value to number 1 to increase 
+#        net.Hard = nengo.Node(output=1)
+#        nengo.Connection(net.Hard, net.ActionSelection[2]) #add value to number 1 to increase 
         return net 
     
     

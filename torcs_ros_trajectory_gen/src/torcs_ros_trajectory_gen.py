@@ -15,7 +15,7 @@ from geometry_msgs.msg import TwistStamped, Vector3Stamped, PoseStamped, Point, 
 from visualization_msgs.msg import Marker
 from tf2_msgs.msg import TFMessage
 from nav_msgs.msg import Path
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, Int8
 
 import Trajectory_generation
 import copy
@@ -32,7 +32,8 @@ from bzGeometricFuncs import BaseLinkToTrajectory
 
 #ROS node functionality
 class TrajectoryPublish():
-    def __init__(self, frame_topic = "/tf", action_topic="/torcs_ros/ctrl_signal_action"):
+    def __init__(self, frame_topic = "/tf", action_topic="/torcs_ros/ctrl_signal_action", 
+                 selector_topic = "/torcs_ros/TrajectorySelector"):
         #### variables ####
         self.time = rospy.Time.now() #to be used as reference time when performing transformations; not working yet
         self.tf_trans = [] #a transformations translatory values received from tr TransformListener
@@ -40,6 +41,7 @@ class TrajectoryPublish():
         self.ros_trans = vec3() #a transformations translatory values received from ros subscription
         self.ros_rot = vec4() #a transformations rotatory values received from ros subscription
         self.newest_ros_transform = TransformStamped();  
+        self.idx_TrajectorySelected  = 0
         self.b_TrajectoryNeeded = True 
         #### parameters for trajectory generation ####
         self.f_lateralDist = 10 #lateral spread in width between terminal points in metre
@@ -66,14 +68,14 @@ class TrajectoryPublish():
         #### publishers ####
          #list of publishers of trajectories in Path() format, one for each trajectory
         self.pub_allPaths = [] # //depreceated; list of publishers to visualize all possible trajectories
-        [self.pub_allPaths.append(rospy.Publisher("/torcs_ros/trajectory"+str(x), Path, queue_size=1)) for x in range(0, self.n_amount*2+1)] #
+#        [self.pub_allPaths.append(rospy.Publisher("/torcs_ros/trajectory"+str(x), Path, queue_size=1)) for x in range(0, self.n_amount*2+1)] #
         self.pub_pathSelected = rospy.Publisher("/torcs_ros/trajectorySelected", Path, queue_size=1) #publisher for currently selected trajectory [in world frame]
         self.pub_pathSelectedVisual = rospy.Publisher("/torcs_ros/trajectorySelectedVis", Path, queue_size=1) #publisher for currently selected trajectory [in baselink frame]
         
         #### subscribers ####
         self.sub_frame = rospy.Subscriber(frame_topic, TFMessage, self.sub_frame_callback, queue_size=1) #a subscriber that manually subscribes to the published frames
-        self.sub_needForAction = rospy.Subscriber(action_topic, Bool, self.sub_needForAction_callback, queue_size=1) #receives message whether a new trajectory is needed
-        
+#        self.sub_needForAction = rospy.Subscriber(action_topic, Bool, self.sub_needForAction_callback, queue_size=1) #receives message whether a new trajectory is needed
+        self.sub_trajectorySelector = rospy.Subscriber(selector_topic, Int8, self.sub_trajectorySelector_callback, queue_size=1) #receives a trajectory index whenever a new trajectory is needed and selected
         
     def set_trajectories(self):
         ########## Path version of trajectories ##############
@@ -201,6 +203,7 @@ class TrajectoryPublish():
             #check whether a new trajectory has to be published
             if self.b_TrajectoryNeeded == True:
                 self.selectAndPublishTrajectory()
+                self.b_TrajectoryNeeded = False
 
             
             self.transformAndPublishVisualization() #always publish trajectory in baselink frame, as the relative movement has to be compensated for
@@ -208,17 +211,21 @@ class TrajectoryPublish():
         
         
     #callback function that identifies whether a new trajectory has to be selected and published
-    def sub_needForAction_callback(self, msg_action):
-        self.b_TrajectoryNeeded = msg_action.data
+#    def sub_needForAction_callback(self, msg_action):
+    def sub_trajectorySelector_callback(self, msg_selector):
+        self.idx_TrajectorySelected = msg_selector.data
+        self.b_TrajectoryNeeded = True
         
     def selectAndPublishTrajectory(self):
-        self.transform_one_trajectories(np.random.randint(0, self.n_amount*2+1)) #transform trajectories to world coordinates
+#        self.transform_one_trajectories(np.random.randint(0, self.n_amount*2+1)) #transform trajectories to world coordinates
+        self.transform_one_trajectories(self.idx_TrajectorySelected) #transform trajectories to world coordinates
+
         self.mark_trajectory_i_as_active(0) #set a chosen trajectory as active
 
-        #publish all trajectories apart from selected one (message is empty)
-        for path_msg, path_pub in zip (self.pathWorld_msgs, self.pub_allPaths):
-            if path_msg is not self.path_msgs[self.n_selectedTrajectory]:
-                path_pub.publish(path_msg)
+#        #publish all trajectories apart from selected one (message is empty)
+#        for path_msg, path_pub in zip (self.pathWorld_msgs, self.pub_allPaths):
+#            if path_msg is not self.path_msgs[self.n_selectedTrajectory]:
+#                path_pub.publish(path_msg)
 
         self.pub_pathSelected.publish(self.selectedTrajectory_msg)
 
