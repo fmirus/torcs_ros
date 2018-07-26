@@ -56,7 +56,8 @@ class FollowTrajectory():
         self.ctrl_brake = 0 #desired brake signal [fixed at 0]
         self.ctrl_steering = 0 #desired steering [calculated from trajectory]
         self.ctrl_gear = 0 #desired gear [calculated from look up table]
-        self.needForAction_msg = Bool()
+        self.needForAction_msg = Bool() #message that indicates that end of a trajectory has been reached
+        
         
         #### calculation parameters and variables #### 
         self.param_kappa = 0.75/2 #value used to adjust desired heading to, experimentlly determined. 0.75 lead to small oscillation
@@ -175,11 +176,17 @@ class FollowTrajectory():
     def CheckForOutOfTrack(self):
         b_Restart = False
         if (abs(self.sen_trackpos) > 1): #if vehicle is off track or last point is , restart 
-                b_Restart = True
-        if (self.sen_speedX < 3): #if low speed, car is probably stuck
+            dt = rospy.Time.now().secs - self.race_start_time.secs #calculate whether race has just started
+            if (dt > 5): #do not restart if race has just started
+                b_Restart = True 
+                print("\033[96mClient node is being restarted as vehicle was off track \033[97m") 
+
+        elif (self.sen_speedX < 3): #if low speed, car is probably stuck
             dt = rospy.Time.now().secs - self.race_start_time.secs #calculate whether race has just started
             if (dt > 15): #do not restart if race has just started
                 b_Restart = True 
+                print("\033[96mClient node is being restarted as vehicle seemed to be stuck \033[97m") 
+
         if b_Restart == True:
             msg_ctrl = TORCSCtrl() #message container
             msg_ctrl.meta = 1 #set restart flag
@@ -190,9 +197,8 @@ class FollowTrajectory():
             self.pub_ctrl.publish(msg_ctrl) #demand restart
             
             self.trajectory = Path() #reset selected trajectory to be empty
-            
+            self.race_start_time = rospy.Time.now() #new race started, reinitialize time            
             os.system("rosnode kill /torcs_ros/torcs_ros_client_node") #kills client node with terminal command
-            print("Client node is being restarted as vehicle was off track")
             rospy.sleep(1) #give the system enough time to have killed of node
 #            os.system("roslaunch torcs_ros_client torcs_ros_client_ns.xml") #relaunch client node with roslaunch command when not in namespace yet (if called manually from console)
             os.system("roslaunch torcs_ros_client torcs_ros_client.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
