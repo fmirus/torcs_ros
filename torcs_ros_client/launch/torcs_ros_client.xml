@@ -12,5 +12,7 @@
     <remap from="torcs_speed" to="speed" />
     <rosparam file="$(arg param_file)" command="load"/>
   </node>
+  <node pkg="torcs_ros_client" type="torcs_ros_client_watchdog_node.py" name="torcs_ros_client_watchdog_node" output="screen">
+  </node>
 </launch>
 
