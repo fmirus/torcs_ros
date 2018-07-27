@@ -123,6 +123,7 @@ class FollowTrajectory():
     #calculate and publish control commands
     def calculate_ctrl_commands(self):
         if (len(self.trajectory.poses) > 0): #ensure this callback does not happen before the first trajectory has been published
+            print("after")
             msg_ctrl = TORCSCtrl() #message container
             
             [f_distToTraj, idx_poseHeading, f_distToEnd, self.needForAction_msg.data] = BaseLinkToTrajectory(

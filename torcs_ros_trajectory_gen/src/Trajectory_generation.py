@@ -116,7 +116,11 @@ def EgoTrajectories(f_lateralDist, f_longitudinalDist, n_amount, b_verbose):
         plt.show()
     
         [plt.plot(trajectory, xnew, c='r', alpha=0.8) for trajectory in Traj_Cubic]
+        plt.plot(Traj_Cubic[0], xnew, c='r', alpha=0.8, label = 'cubic clamped')
         [plt.plot(trajectory, xnew, c='b', alpha=0.5) for trajectory in Traj_Quad]
+        plt.plot(Traj_Quad[0], xnew, c='b', alpha=0.8, label = 'quadratic')
+        plt.plot(len(xnew)*[0], xnew, c='g', label='linear')
+        plt.legend(loc='best')
         plt.title('EgoTrajectories - All')
         plt.xlabel('[m]')
         plt.ylabel('[m]')

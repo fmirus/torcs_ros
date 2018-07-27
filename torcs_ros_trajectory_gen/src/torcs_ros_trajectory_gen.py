@@ -24,15 +24,16 @@ import sys
 import rospkg
 cwd = rospkg.RosPack().get_path('torcs_ros_trajectory_gen')
 sys.path.append(cwd[:-24] + "common")
+cwd = cwd[:-24]
 #print(cwd[:-24] + "common")
 from bzVector import vec3, vec4 #2d and 3d vector definition; ERROR; roslaunch does not work with cwd
-
+from bzReadTrajectoryParams import readTrajectoryParams
 
 from bzGeometricFuncs import BaseLinkToTrajectory
 
 #ROS node functionality
 class TrajectoryPublish():
-    def __init__(self, frame_topic = "/tf", action_topic="/torcs_ros/ctrl_signal_action", 
+    def __init__(self, cwd, frame_topic = "/tf", action_topic="/torcs_ros/ctrl_signal_action", 
                  selector_topic = "/torcs_ros/TrajectorySelector"):
         #### variables ####
         self.time = rospy.Time.now() #to be used as reference time when performing transformations; not working yet
@@ -43,11 +44,13 @@ class TrajectoryPublish():
         self.newest_ros_transform = TransformStamped();  
         self.idx_TrajectorySelected  = 0
         self.b_TrajectoryNeeded = True 
+        self.b_initHandshake = False
+        self.b_initHandshakeSent = False
         #### parameters for trajectory generation ####
-        self.f_lateralDist = 10 #lateral spread in width between terminal points in metre
-        self.f_longitudinalDist = 25  #planning horizon in metre
-        self.n_amount = 10 #amount of trajectories per class
-
+#        self.f_longitudinalDist = 25  #planning horizon in metre
+#        self.f_lateralDist = 10 #lateral spread in width between terminal points in metre
+#        self.n_amount = 10 #amount of trajectories per class
+        [self.f_longitudinalDist, self.f_lateralDist, self.n_amount] = readTrajectoryParams(cwd)
         #### message definitions #####
         self.trajectoryBaselink_msgs = [] #trajectories in baselink coordinates (static) //depreceated
         self.trajectoryWorld_msgs = [] #trajectories in world coordinates (static) //depreceated
@@ -71,6 +74,7 @@ class TrajectoryPublish():
 #        [self.pub_allPaths.append(rospy.Publisher("/torcs_ros/trajectory"+str(x), Path, queue_size=1)) for x in range(0, self.n_amount*2+1)] #
         self.pub_pathSelected = rospy.Publisher("/torcs_ros/trajectorySelected", Path, queue_size=1) #publisher for currently selected trajectory [in world frame]
         self.pub_pathSelectedVisual = rospy.Publisher("/torcs_ros/trajectorySelectedVis", Path, queue_size=1) #publisher for currently selected trajectory [in baselink frame]
+        self.pub_handshake = rospy.Publisher("/torcs_ros/gen2selHandshake", Bool, queue_size=1)
         
         #### subscribers ####
         self.sub_frame = rospy.Subscriber(frame_topic, TFMessage, self.sub_frame_callback, queue_size=1) #a subscriber that manually subscribes to the published frames
@@ -215,6 +219,7 @@ class TrajectoryPublish():
     def sub_trajectorySelector_callback(self, msg_selector):
         self.idx_TrajectorySelected = msg_selector.data
         self.b_TrajectoryNeeded = True
+        self.b_initHandshake = True #can be marked as true as soon as the first trajectory has been received
         
     def selectAndPublishTrajectory(self):
 #        self.transform_one_trajectories(np.random.randint(0, self.n_amount*2+1)) #transform trajectories to world coordinates
@@ -251,11 +256,19 @@ class TrajectoryPublish():
             pose.pose.position.y = position_rotated[1] - translation_inv[1]
             pose.pose.position.z = position_rotated[2] - translation_inv[2]
         self.pub_pathSelectedVisual.publish(self.selectedTrajectoryVis_msg)
-
+    
+    def initHandshake(self):
+        if (self.b_initHandshakeSent == False):
+            self.b_initHandshakeSent = True
+            handshake_message = Bool()
+            handshake_message.data = self.b_initHandshake
+            self.pub_handshake.publish(self.b_initHandshake)
         
 if __name__ == '__main__':
     rospy.init_node('Trajectory_Publisher')
     rospy.wait_for_message("/tf", TFMessage)
-    TrajectoryPublisher = TrajectoryPublish()
-    rospy.spin()
+    trajectoryPublisher_ = TrajectoryPublish(cwd)
+    while not rospy.is_shutdown():
+        rospy.sleep(5)
+        trajectoryPublisher_.initHandshake()
 
