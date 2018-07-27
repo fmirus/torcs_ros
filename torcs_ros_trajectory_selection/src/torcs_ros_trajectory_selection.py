@@ -14,7 +14,7 @@ import subprocess
 from geometry_msgs.msg import TwistStamped
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Bool, Int8
-from torcs_msgs.msg import TORCSSensors
+from torcs_msgs.msg import TORCSSensors, TORCSCtrl
 
 import nengo_nets_qnet_associative as snn
 
@@ -76,7 +76,8 @@ class NodeOutputProber():
         
 class TrajectorySelector():
     def __init__(self, cwd, scan_topic = "/torcs_ros/scan_track", action_topic="/torcs_ros/ctrl_signal_action",
-                 sensors_topic = "/torcs_ros/sensors_state", speed_topic="/torcs_ros/speed"):
+                 sensors_topic = "/torcs_ros/sensors_state", speed_topic="/torcs_ros/speed", 
+                 ctrl_topic = "torcs_ros/ctrl_cmd"):
   
         #### various parameters and variables ####
         #choose index of scanners to use
@@ -115,7 +116,7 @@ class TrajectorySelector():
         self.sub_sensors = rospy.Subscriber(sensors_topic, TORCSSensors, self.sensors_callback)
         self.sub_speed = rospy.Subscriber(speed_topic, TwistStamped, self.speed_callback)
         self.sub_handshake = rospy.Subscriber("/torcs_ros/gen2selHandshake", Bool, self.handshake_callback)
-        
+        self.sub_ctrlCmd = rospy.Subscriber(ctrl_topic, TORCSCtrl, self.ctrl_callback)
         #### publisher ####
         self.pub_trajectorySelection = rospy.Publisher("/torcs_ros/TrajectorySelector", Int8, queue_size=1) #negative values are parsed when no trajectory should be selected
         
@@ -165,6 +166,11 @@ class TrajectorySelector():
         
     def handshake_callback(self, msg_handshake):
         self.b_handshake = msg_handshake.data
+        
+    def ctrl_callback(self, msg_ctrl):
+        self.b_handshake = True
+        
+        
     #calculate the lowest amount of time needed at the expected speed to traverse the longitudinal distance if the road were to be straight
     #this will then be used to calculate the reward
     #higher values can be achieved in curves, but it is not absoulutely necessary to limit this value to one
