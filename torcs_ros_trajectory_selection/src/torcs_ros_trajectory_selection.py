@@ -76,17 +76,22 @@ class NodeInputScan():
 #Returns that reward vector on every timestep with the __call__ function        
 class NodeInputReward():
     def __init__(self, n_action):
-        self.reward = n_action*[0] #initialize reward to be 0 for all actions
-        
+        self.reward = 0 #initialize reward to be 0 for all actions
+        self.oneHot_action = n_action*[0]
+        self.retVec = (n_action+1)*[0]
     def __call__(self, t):
-        return self.reward #return current reward
+ 
+        return self.retVec #return current reward
     
     def NoLearning(self):
-        self.reward = [0 for action in self.reward] #reset reward array to 0
+        self.reward = 0 #reset reward array to 0
+        self.oneHot_action = [0 for f in self.oneHot_action]
         
     def RewardAction(self, i, i_reward):
-        self.reward[i] = i_reward #set a specific action to have a reward
-
+        self.reward = i_reward #set a specific action to have a reward
+        self.oneHot_action[i] = 1
+        self.retVec = self.oneHot_action
+        self.retVec.append(self.reward) 
 #A class that can be passed to a nengo node as an output probe
 #Member variables only save last state, therefore eliminating a need for a nengo.Probe or similar
 class NodeOutputProber():
@@ -111,8 +116,8 @@ class TrajectorySelector():
         self.param_rangeNormalize = 100 #value used for normalization. all values above will be considered as 1
         self.param_f_maxExpectedSpeed = 37.0 #[km/h], set higher than 34 deliberately to scale reward a bit
         [self.param_f_longitudinalDist, _, self.param_n_action] = readTrajectoryParams(cwd)
-        self.param_n_action = calcTrajectoryAmount(self.param_n_action)
-        self.calculateRewardRange()
+        self.param_n_action = calcTrajectoryAmount(self.param_n_action) #get how many trajectories are actually used
+        self.calculateRewardRange() #calculate normalization factor for reward from parameters
         
         #### subscription parameters ####
         self.b_TrajectoryNeeded = False
@@ -231,6 +236,7 @@ class TrajectorySelector():
             self.reward = (f_distTravelled/self.param_f_longitudinalDist) / (f_timeNeeded/self.param_f_minTime) #maybe pow 2
             self.reward *= self.reward #scale reward for more distinction between all trajectories
         self.checkRewardValidity()
+        
         
         print(self.reward)
 

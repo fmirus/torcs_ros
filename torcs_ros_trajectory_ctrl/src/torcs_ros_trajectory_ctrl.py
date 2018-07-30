@@ -123,16 +123,12 @@ class FollowTrajectory():
     #calculate and publish control commands
     def calculate_ctrl_commands(self):
         if (len(self.trajectory.poses) > 0): #ensure this callback does not happen before the first trajectory has been published
-            print("after")
             msg_ctrl = TORCSCtrl() #message container
             
             [f_distToTraj, idx_poseHeading, f_distToEnd, self.needForAction_msg.data] = BaseLinkToTrajectory(
                     self.ros_trans.x, self.ros_trans.y, self.trajectory.poses) #Calculate baselink to trajectory information
             self.trajectory_rot.Set(self.trajectory.poses[idx_poseHeading]) #Convert msg type to vec4() quatenrion
             f_deltaHeading = self.ComputeAngleDifference(self.ros_rot, self.trajectory_rot) #difference in desired orientation to current baselink orientation
-            
-            print(f_deltaHeading, f_distToTraj, f_distToEnd)
-    
     
 #            self.ctrl_steering = (self.sen_angle - self.sen_trackpos*self.param_kappa)/self.param_steerLock #control towards midline
             
@@ -189,6 +185,7 @@ class FollowTrajectory():
                 print("\033[96mClient node is being restarted as vehicle seemed to be stuck \033[97m") 
 
         if b_Restart == True:
+
             msg_ctrl = TORCSCtrl() #message container
             msg_ctrl.meta = 1 #set restart flag
             #ensure last sent control command is no movement
@@ -208,6 +205,7 @@ class FollowTrajectory():
             self.needForAction_msg.data = True  
             self.pub_needTrajectory.publish(self.needForAction_msg)
             self.race_start_time = rospy.Time.now() #new race started, reinitialize time
+
 
 if __name__ == "__main__":
     rospy.init_node("Trajectory_Follow_Control")
