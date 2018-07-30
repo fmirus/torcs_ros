@@ -159,7 +159,8 @@ class TrajectorySelector():
         self.sim = nengo_dl.Simulator(self.q_net_ass, progress_bar=False)
         
         self.b_doSimulateOnce = True
-        self.idx_action = 0
+        self.idx_last_action = 0
+        self.idx_next_action = 0
         
         ##### subscribers #####
         self.sub_scanTrack = rospy.Subscriber(scan_topic, LaserScan, self.scan_callback)
@@ -183,7 +184,7 @@ class TrajectorySelector():
                 self.calculateReward()
                 ###select previously run output and resimulate in off-time to calculate next output
                 msg_sel = Int8()
-                msg_sel.data = self.idx_action
+                msg_sel.data = self.idx_next_action
                 self.pub_trajectorySelection.publish(msg_sel)
                 self.f_lapTimeStart = self.f_lapTimeCurrent
                 self.f_distStart = self.f_distCurrent
@@ -197,16 +198,17 @@ class TrajectorySelector():
                 self.PauseIfUnpaused()
                 self.state_inputer.setVals(self.a_scanTrack) #state values only changed before action selection simulation
                 self.time_inputer.setT(self.output_prober.time_val)
-                self.sim.run(0.5) #run simulation for x 
+                self.sim.run(0.5, progress_bar = False) #run simulation for x 
                 self.UnpauseIfPaused()
-                self.idx_action = np.argmax(np.array(self.output_prober.probe_vals[:-1]))
+                self.idx_last_action = self.idx_next_action
+                self.idx_next_action = np.argmax(np.array(self.output_prober.probe_vals[:-1]))
                 self.b_doSimulateOnce = False #don't simualte again until this trajectory has been published (which means that the action signal will turn to False)
                 
         else:
             self.b_doSimulateOnce = True #action signal is not set anymore, on next true we need to perform another simulation
         if (self.b_handshake == False):
             msg_sel = Int8()
-            msg_sel.data = self.idx_action
+            msg_sel.data = self.idx_next_action
             self.pub_trajectorySelection.publish(msg_sel)
             ##reset do once flag, a new trajectory has been published
 
@@ -270,9 +272,9 @@ class TrajectorySelector():
     def trainOnReward(self):
         self.PauseIfUnpaused()
         if not(np.isnan(self.reward)): #no need to run if the reward does not count
-            print("Training action \033[96m" + str(self.idx_action) + "\033[0m with reward: \033[96m" +str(self.reward) + "\033[0m")
-            self.reward_inputer.RewardAction(self.idx_action, self.reward)
-            self.sim.run(0.5)
+            print("Training action \033[96m" + str(self.idx_last_action) + "\033[0m with reward: \033[96m" +str(self.reward) + "\033[0m")
+            self.reward_inputer.RewardAction(self.idx_last_action, self.reward)
+            self.sim.run(0.5,  progress_bar = False)
             self.reward_inputer.NoLearning()
         self.UnpauseIfPaused()
 
