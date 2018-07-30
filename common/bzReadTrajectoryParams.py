@@ -21,3 +21,8 @@ def readTrajectoryParams(src_path):
 def calcTrajectoryAmount(n_amount):
     return 2*n_amount+1
 
+def readVisualize(src_path):
+    src_path += "/torcs_ros_trajectory_gen/include/torcs_ros_trajectory_gen/trajectory_params.yaml"
+    with open(src_path, 'r') as ymlfile:
+        params = yaml.load(ymlfile)
+    	return params['b_visualizeAll']

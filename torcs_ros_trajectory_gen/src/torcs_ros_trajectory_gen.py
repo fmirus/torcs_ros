@@ -27,7 +27,7 @@ sys.path.append(cwd[:-24] + "common")
 cwd = cwd[:-24]
 #print(cwd[:-24] + "common")
 from bzVector import vec3, vec4 #2d and 3d vector definition; ERROR; roslaunch does not work with cwd
-from bzReadTrajectoryParams import readTrajectoryParams
+from bzReadTrajectoryParams import readTrajectoryParams, readVisualize, calcTrajectoryAmount
 
 from bzGeometricFuncs import BaseLinkToTrajectory
 
@@ -47,10 +47,8 @@ class TrajectoryPublish():
         self.b_initHandshake = False
         self.b_initHandshakeSent = False
         #### parameters for trajectory generation ####
-#        self.f_longitudinalDist = 25  #planning horizon in metre
-#        self.f_lateralDist = 10 #lateral spread in width between terminal points in metre
-#        self.n_amount = 10 #amount of trajectories per class
         [self.f_longitudinalDist, self.f_lateralDist, self.n_amount] = readTrajectoryParams(cwd)
+        self.b_Visualize = readVisualize(cwd)
         #### message definitions #####
         self.trajectoryBaselink_msgs = [] #trajectories in baselink coordinates (static) //depreceated
         self.trajectoryWorld_msgs = [] #trajectories in world coordinates (static) //depreceated
@@ -71,7 +69,8 @@ class TrajectoryPublish():
         #### publishers ####
          #list of publishers of trajectories in Path() format, one for each trajectory
         self.pub_allPaths = [] # //depreceated; list of publishers to visualize all possible trajectories
-#        [self.pub_allPaths.append(rospy.Publisher("/torcs_ros/trajectory"+str(x), Path, queue_size=1)) for x in range(0, self.n_amount*2+1)] #
+        if (self.b_Visualize):
+            [self.pub_allPaths.append(rospy.Publisher("/torcs_ros/trajectory"+str(x), Path, queue_size=1)) for x in range(0, self.n_amount*2+1)] #
         self.pub_pathSelected = rospy.Publisher("/torcs_ros/trajectorySelected", Path, queue_size=1) #publisher for currently selected trajectory [in world frame]
         self.pub_pathSelectedVisual = rospy.Publisher("/torcs_ros/trajectorySelectedVis", Path, queue_size=1) #publisher for currently selected trajectory [in baselink frame]
         self.pub_handshake = rospy.Publisher("/torcs_ros/gen2selHandshake", Bool, queue_size=1)
@@ -227,11 +226,12 @@ class TrajectoryPublish():
 
         self.mark_trajectory_i_as_active(0) #set a chosen trajectory as active
 
-#        #publish all trajectories apart from selected one (message is empty)
-#        for path_msg, path_pub in zip (self.pathWorld_msgs, self.pub_allPaths):
-#            if path_msg is not self.path_msgs[self.n_selectedTrajectory]:
-#                path_pub.publish(path_msg)
-
+        #publish all trajectories apart from selected one (message is empty)
+        if(self.b_Visualize):
+            for path_msg, path_pub in zip (self.path_msgs, self.pub_allPaths):
+                if path_msg is not self.path_msgs[self.n_selectedTrajectory]:
+                    path_pub.publish(path_msg)
+    
         self.pub_pathSelected.publish(self.selectedTrajectory_msg)
 
 

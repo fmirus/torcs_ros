@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import nengo_dl
 
 
-def qnet_associative(b_Direct, signal, i_reward, i_output, n_action, label=''):
+def qnet_associative(b_Direct, signal, i_reward, i_time, i_output, n_action, label=''):
     param_neuron = nengo.neurons.LIF()
     if b_Direct == True:
         param_neuron = nengo.neurons.Direct()
@@ -24,9 +24,9 @@ def qnet_associative(b_Direct, signal, i_reward, i_output, n_action, label=''):
     epsilon = 0
     
     
-    tau_short = 0.005
-    tau_mid = 0.01
-    tau_long = 0.1
+#    tau_short = 0.005
+    tau_mid = 0.005
+    tau_long = 0.01
     
     with nengo.Network(label=label) as net: 
         #action selection with decaying epsilon exploration
@@ -40,6 +40,13 @@ def qnet_associative(b_Direct, signal, i_reward, i_output, n_action, label=''):
             retVec = retVec.tolist()
             retVec.append(x[idx])
             return retVec
+        
+        def func_afterT(t, x):
+            #x[-1] is start time
+            if (t > x[-1]+0.4 and t < x[-1]+0.5): #limits learning to window after 
+                return x[:-1]
+            else:
+                return (len(x)-1)*[0]
 
         net.stateIn = nengo.Node(output=signal, size_in=None, size_out=n_dim)
         net.eGreedyIn = nengo.Node(output=lambda t: np.random.uniform(0,1), label='epsilon greedy input')
@@ -55,11 +62,9 @@ def qnet_associative(b_Direct, signal, i_reward, i_output, n_action, label=''):
         net.ActionSelection = nengo.Node(output=func_epsilonMax, size_in=n_action+1, size_out=n_action+1, label='Action selection and exploration') 
         nengo.Connection(net.stateIn, net.QEnsemble_In)
         #initalize Q population with fixed low reward for all (alternative: low but random )
-        net.LearningConnections = [nengo.Connection(net.QEnsemble_In, net.QEnsembleArray_Out.input[n], function=lambda x: 0# np.random.uniform(0, 0.01)
+        net.LearningConnections = [nengo.Connection(net.QEnsemble_In, net.QEnsembleArray_Out.input[n], function=lambda x: np.random.uniform(0, 0.1)
         , label='Learning Connection Action' + str(n), learning_rule_type=nengo.PES(learning_rate=0.001), synapse=tau_mid) for n in range(n_action)]
     
-    
-        net.LearningConnections[10].learning_rule_type= nengo.PES()
 
         [nengo.Connection(net.QEnsembleArray_Out.output[n], net.ActionSelection[n], label='Q utility to action'+str(n),
                           synapse=tau_long) for n in range(n_action)]
@@ -84,7 +89,15 @@ def qnet_associative(b_Direct, signal, i_reward, i_output, n_action, label=''):
         [nengo.Connection(net.Reward[n], net.Delay.ensembles[n].neurons, 
                           transform=-5*np.ones((net.Delay.ensembles[n].n_neurons, 1))) for n in range(n_action)]
     
-        [nengo.Connection(net.Delay.output[n], net.LearningConnections[n].learning_rule) for n in range(n_action)]
+        net.tStart = nengo.Node(output=i_time, size_in = None, size_out=1)
+        net.LearnAfterT = nengo.Node(output=func_afterT, size_in = n_action+1, size_out = n_action)
+        
+#        [nengo.Connection(net.Delay.output[n], net.LearningConnections[n].learning_rule) for n in range(n_action)]
+        [nengo.Connection(net.Delay.output[n], net.LearnAfterT[n]) for n in range(n_action)]
+        nengo.Connection(net.tStart, net.LearnAfterT[-1])
+        [nengo.Connection(net.LearnAfterT[n], net.LearningConnections[n].learning_rule) for n in range(n_action)]
+
+        
 
 #        net.Hard = nengo.Node(output=1)
 #        nengo.Connection(net.Hard, net.ActionSelection[2], transform=-1) #add value to number 1 to increase 
@@ -101,6 +114,8 @@ def reward_function(t):
     r[-1] = 0.4
     if t > 1:
         r[10] = 0
+#    r[10] = 0
+
     return r
 
 
@@ -113,7 +128,7 @@ class RNodeOutputProber():
         self.time_val = t 
         return self.probe_vals
 
-
+#function used for debugging and visualization purposes
 if __name__ == "__main__":
     n_dim = 7
     n_action = 21
@@ -121,7 +136,7 @@ if __name__ == "__main__":
     reward = reward_function(0)
     output = RNodeOutputProber(n_action)
     
-    SNN_Q_ass = qnet_associative(False, signal, reward_function, output.ProbeFunc, 21)
+    SNN_Q_ass = qnet_associative(False, signal, reward_function, 1.5, output.ProbeFunc, 21)
     nengo.rc.set('progress', 'progress_bar', 'nengo.utils.progress.TerminalProgressBar') #Terminal progress bar for inline
     
     with SNN_Q_ass:

@@ -2,5 +2,5 @@
 
 f_lateralDist : 10 #"x" distance between terminal points of leftmost and rightmost trajectories of one category   
 f_longitudinalDist : 25 #"y" distance between starting and end point of trajectories 
-n_amount : 10 #trajectories generated per category + 1 straight trajectory (total amount = 2*n_amount +1)
-
+n_amount : 10 #trajectories generated per category + 1 straight trajectory (total amount = 2*n_amount +1), should be odd (otherwise there is 3 straight trajectories)
+b_visualizeAll : False #all trajectories are published, heavily impacts performance and should only be set to True for debug purposes

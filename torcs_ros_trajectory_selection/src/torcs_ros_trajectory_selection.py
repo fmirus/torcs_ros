@@ -9,6 +9,7 @@ Created on Thu Jul 26 10:23:30 2018
 import numpy as np
 import rospy
 import nengo
+import nengo_dl
 import subprocess
 import copy
 
@@ -57,6 +58,7 @@ class NodeInputScan():
     #Call function needed for nengo, called within each simulation step 
     #returns a constant input over the entirety of the simulation dependent on the sensor state when starting the simulation
     def __call__(self, t):
+#        print(t)
         return self.a_scanTrack
     
     #Used for debug purposes to ensure object has not been destructed
@@ -77,21 +79,30 @@ class NodeInputScan():
 class NodeInputReward():
     def __init__(self, n_action):
         self.reward = 0 #initialize reward to be 0 for all actions
-        self.oneHot_action = n_action*[0]
-        self.retVec = (n_action+1)*[0]
+        self.oneHot_action = n_action*[1] #inverse one hot, as it is used as inhibiting connection
+        self.retVec = (n_action+1)*[1]
     def __call__(self, t):
- 
         return self.retVec #return current reward
     
     def NoLearning(self):
         self.reward = 0 #reset reward array to 0
-        self.oneHot_action = [0 for f in self.oneHot_action]
+        self.oneHot_action = [1 for f in self.oneHot_action]
         
     def RewardAction(self, i, i_reward):
         self.reward = i_reward #set a specific action to have a reward
-        self.oneHot_action[i] = 1
-        self.retVec = self.oneHot_action
+        self.oneHot_action[i] = 0
+        self.retVec = copy.copy(self.oneHot_action)
         self.retVec.append(self.reward) 
+        
+        
+class NodeInputStartTime():
+    def __init__(self):
+        self.t_start = 0
+    def __call__(self, t):
+        return self.t_start
+    def setT(self, t):
+        self.t_start = t
+        
 #A class that can be passed to a nengo node as an output probe
 #Member variables only save last state, therefore eliminating a need for a nengo.Probe or similar
 class NodeOutputProber():
@@ -118,6 +129,8 @@ class TrajectorySelector():
         [self.param_f_longitudinalDist, _, self.param_n_action] = readTrajectoryParams(cwd)
         self.param_n_action = calcTrajectoryAmount(self.param_n_action) #get how many trajectories are actually used
         self.calculateRewardRange() #calculate normalization factor for reward from parameters
+        self.reward = np.nan
+        self.b_pause = False
         
         #### subscription parameters ####
         self.b_TrajectoryNeeded = False
@@ -137,11 +150,14 @@ class TrajectorySelector():
         #### nengo net and parameters #### 
         self.state_inputer = NodeInputScan(len(self.a_selectScanTrack))
         self.reward_inputer = NodeInputReward(self.param_n_action)
+        self.time_inputer = NodeInputStartTime()
         self.output_prober = NodeOutputProber(self.param_n_action) #naction currently hardocded, should be a global ros parameter
-        self.q_net_ass = snn.qnet_associative(False, self.state_inputer, self.reward_inputer, 
+        self.q_net_ass = snn.qnet_associative(False, self.state_inputer, self.reward_inputer, self.time_inputer,
                                               self.output_prober.ProbeFunc, self.param_n_action)
         nengo.rc.set('progress', 'progress_bar', 'nengo.utils.progress.TerminalProgressBar') #Terminal progress bar for inline
-        self.sim = nengo.Simulator(self.q_net_ass, progress_bar=False)
+#        self.sim = nengo.Simulator(self.q_net_ass, progress_bar=True, optimize=True) #optimize trades in build for simulation time
+        self.sim = nengo_dl.Simulator(self.q_net_ass, progress_bar=False)
+        
         self.b_doSimulateOnce = True
         self.idx_action = 0
         
@@ -177,10 +193,12 @@ class TrajectorySelector():
                 #not very nice but might be needed with bad hardware
                 
                 #needs xdotool
-                #os.system('xdotool search --name "torcs-bin" key p')
-                #subprocess.call('xdotool search --name "torcs-bin" key p', shell=True) 
+#                os.system('xdotool search --name "torcs-bin" key p')
+                self.PauseIfUnpaused()
                 self.state_inputer.setVals(self.a_scanTrack) #state values only changed before action selection simulation
+                self.time_inputer.setT(self.output_prober.time_val)
                 self.sim.run(0.5) #run simulation for x 
+                self.UnpauseIfPaused()
                 self.idx_action = np.argmax(np.array(self.output_prober.probe_vals[:-1]))
                 self.b_doSimulateOnce = False #don't simualte again until this trajectory has been published (which means that the action signal will turn to False)
                 
@@ -216,6 +234,8 @@ class TrajectorySelector():
         self.b_handshake = True
         if(msg_ctrl.meta == 1):
             print("A restart has been requested")
+            self.reward = -1
+            self.trainOnReward()
             self.clearMemory()
         
         
@@ -229,24 +249,42 @@ class TrajectorySelector():
         
     def calculateReward(self):
         if (self.f_speedXCurrent < 30 or self.f_speedXStart < 30): #disregard when end speed has not been reached yet
-            self.reward = 0
+            self.reward = np.nan
         elif (self.f_lapTimeCurrent > self.f_lapTimeStart): #ensure no new lap has started
             f_distTravelled = self.f_distCurrent - self.f_distStart #
             f_timeNeeded = self.f_lapTimeCurrent - self.f_lapTimeStart #can be neglected if we 
             self.reward = (f_distTravelled/self.param_f_longitudinalDist) / (f_timeNeeded/self.param_f_minTime) #maybe pow 2
             self.reward *= self.reward #scale reward for more distinction between all trajectories
         self.checkRewardValidity()
+        self.trainOnReward()
         
-        
-        print(self.reward)
 
         
     def checkRewardValidity(self):
         if (self.reward > 5):
-            self.reward = 0
+            self.reward = np.nan
             
     def clearMemory(self):
         pass
+    
+    def trainOnReward(self):
+        self.PauseIfUnpaused()
+        if not(np.isnan(self.reward)): #no need to run if the reward does not count
+            print("Training action \033[96m" + str(self.idx_action) + "\033[0m with reward: \033[96m" +str(self.reward) + "\033[0m")
+            self.reward_inputer.RewardAction(self.idx_action, self.reward)
+            self.sim.run(0.5)
+            self.reward_inputer.NoLearning()
+        self.UnpauseIfPaused()
+
+    def PauseIfUnpaused(self):
+        if(self.b_pause == False):
+            self.b_pause = True
+            subprocess.call('xdotool search --name "torcs-bin" key p', shell=True) 
+    
+    def UnpauseIfPaused(self):
+        if(self.b_pause == True):
+            self.b_pause = False
+            subprocess.call('xdotool search --name "torcs-bin" key p', shell=True) 
 
 if __name__ == "__main__":
     if(len(os.popen("dpkg -l | grep xdotool").readlines()) == 0): #check whether xdotool is installed
