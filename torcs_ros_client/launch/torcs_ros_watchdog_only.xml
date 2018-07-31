@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>
+
+  <node pkg="torcs_ros_client" type="torcs_ros_client_watchdog_node.py" name="torcs_ros_client_watchdog_node" output="screen">
+  </node>
+
+</launch>
+

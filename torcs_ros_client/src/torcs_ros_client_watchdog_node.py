@@ -9,21 +9,76 @@ Created on Thu Jul 26 12:59:36 2018
 import os
 import rospy
 import numpy as np
+import subprocess 
 
 from torcs_msgs.msg import TORCSSensors
+from rosgraph_msgs.msg import Log
 
+import sys
+import rospkg
+cwd = rospkg.RosPack().get_path('torcs_ros_client')#trajectory_gen')
+sys.path.append(cwd[:-16] + "common")
+cwd = cwd[:-16]
 
+from bzRestartTORCSraceGUI import RestartTORCSRace
 
 class Watchdog():
     def __init__(self, sensors_topic = "/torcs_ros/sensors_state"):
         
         self.last_callback_time = rospy.Time.now()
+        self.log_callback_time_connection = rospy.Time.now()
+        self.log_callback_time_pause = rospy.Time.now()
+        self.b_HasBeenLaunchedOnce = False
+
+        self.n_counterConnection = 0
+        self.n_counterPause = 0
+        self.n_counterComp = 20
             
         self.sub_sensors = rospy.Subscriber(sensors_topic, TORCSSensors, callback = self.callback)
+        self.sub_log = rospy.Subscriber("/rosout", Log, callback =self.log_callback)
         
 
     def callback(self, msg):
         self.last_callback_time = rospy.Time.now()
+        self.b_HasBeenLaunchedOnce = True
+        self.n_counterComp = 5
+        
+    def log_callback(self, msg):
+        if(self.b_HasBeenLaunchedOnce): #avoid clicking before first run
+            if ("torcs_ros_client_node.cpp" in msg.file):
+                if ("Not connected to server yet!!" in msg.msg): #theoretically it should be enough to check for this
+                    dt = rospy.Time.now() - self.log_callback_time_connection 
+                    self.log_callback_time_connection = rospy.Time.now()
+                    if(dt.secs < 3):
+                        self.n_counterConnection += 1
+                        if(self.n_counterConnection >= self.n_counterComp):
+                            print("\033[96mWatchdog is restarting TORCS via the GUI and restarting client node \033[0m")
+                            os.system("rosnode kill /torcs_ros/trajectory_ctrl")
+                            
+#                            os.system("rosnode kill /torcs_ros/torcs_ros_client_node") #kills client node with terminal command
+                            rospy.sleep(1) #give the system enough time to have killed of node
+                            RestartTORCSRace()
+#                            os.system("roslaunch torcs_ros_trajectory_ctrl torcs_ros_trajectory_ctrl.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
+#                            rospy.sleep(1)
+                            os.system("roslaunch torcs_ros_client torcs_ros_client_only.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
+                            self.n_counterConnection = 0
+                    else:
+                        self.n_counterConnection = 0
+                if("Server did not respond in 1 second" in msg.msg):
+                    dt = rospy.Time.now() - self.log_callback_time_pause 
+                    self.log_callback_time_pause = rospy.Time.now()
+                    print("Pause callback received")
+                    if(dt.secs < 3):
+                        self.n_counterPause += 1
+                        if(self.n_counterPause >= self.n_counterComp):
+                            print("\033[96mWatchdog is unpausing TORCS \033[0m")
+    #                        rospy.sleep(5) #give enough time to manually stop this process
+                            subprocess.call('xdotool search --name "torcs-bin" key p', shell=True) 
+                            self.n_counterPause = 0
+                    else:
+                        self.n_counterPause = 0
+        
+                        #handle case where game is connected but 
 
     #the restart will only work if the game is waiting for the scr_server as it will not connect otherwise
     def is_client_alive(self):
@@ -45,7 +100,7 @@ class Watchdog():
                     print("\033[96mWatchdog says: Client node seems to have died and not been restarted. Will try starting it again. \033[97m") 
                     rospy.sleep(1) #give the system enough time to have killed of node
                     #  os.system("roslaunch torcs_ros_client torcs_ros_client_ns.xml") #relaunch client node with roslaunch command when not in namespace yet (if called manually from console)
-                    os.system("roslaunch torcs_ros_client torcs_ros_client.xml")
+                    os.system("roslaunch torcs_ros_client torcs_ros_client_only.xml")
                     break;
 
     #a function that checks whether the client is connected to the server by comparing the current time
@@ -61,7 +116,7 @@ class Watchdog():
                 print("\033[96mWatchdog says: Client node is alive but seems to not be connected to torcs. Will try restarting it.  \033[97m") 
                 rospy.sleep(1) #give the system enough time to have killed of node
 #               os.system("roslaunch torcs_ros_client torcs_ros_client_ns.xml") #relaunch client node with roslaunch command when not in namespace yet (if called manually from console)
-                os.system("roslaunch torcs_ros_client torcs_ros_client.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
+                os.system("roslaunch torcs_ros_client torcs_ros_client_only.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
 
 
 
@@ -73,3 +128,5 @@ if __name__ == "__main__":
         watchdog.has_client_connected() #check whether client is connected to torcs server
         rospy.sleep(1)
         
+        
+# Not connected to server yet!!

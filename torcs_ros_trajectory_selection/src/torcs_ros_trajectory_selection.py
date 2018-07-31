@@ -103,6 +103,42 @@ class NodeInputStartTime():
     def setT(self, t):
         self.t_start = t
         
+class NodeInputEpsilon():
+    def __init__(self, in_action):
+        self.epsilon_init = 0.5
+        self.epsilon = copy.copy(self.epsilon_init)
+        self.val = -1
+        self.lastVal = -1
+        self.nextVal = -1
+        self.n_action = in_action
+        self.episode = 1.0
+        
+    def DoNotExplore(self):
+        self.val = -1
+    def Explore(self):
+        rand = np.random.uniform(0, 1)
+        self.lastVal = self.nextVal
+        if (rand < self.epsilon):
+            self.nextVal = np.random.randint(0, self.n_action-1)
+        else:
+            self.nextVal = -1
+        
+        if (self.lastVal != -1):
+            print("\033[30mExploring action: " +str(self.lastVal) + " with current th_epsilon: " +str(self.epsilon) +"\033[0m")
+            
+    def SetActive(self):
+        self.val = self.nextVal
+    def SetTraining(self):
+        self.val = self.lastVal
+    def __call__(self, t):
+        return self.val
+    def OnTraining(self):
+        self.episode += 1
+#        self.epsiolon_init
+        self.epsilon = np.clip(self.epsilon_init/(float(self.episode)/20), 0, 1)
+
+        
+
 #A class that can be passed to a nengo node as an output probe
 #Member variables only save last state, therefore eliminating a need for a nengo.Probe or similar
 class NodeOutputProber():
@@ -151,9 +187,10 @@ class TrajectorySelector():
         self.state_inputer = NodeInputScan(len(self.a_selectScanTrack))
         self.reward_inputer = NodeInputReward(self.param_n_action)
         self.time_inputer = NodeInputStartTime()
+        self.epsilon_inputer = NodeInputEpsilon(self.param_n_action)
         self.output_prober = NodeOutputProber(self.param_n_action) #naction currently hardocded, should be a global ros parameter
         self.q_net_ass = snn.qnet_associative(False, self.state_inputer, self.reward_inputer, self.time_inputer,
-                                              self.output_prober.ProbeFunc, self.param_n_action)
+                                              self.epsilon_inputer, self.output_prober.ProbeFunc, self.param_n_action)
         nengo.rc.set('progress', 'progress_bar', 'nengo.utils.progress.TerminalProgressBar') #Terminal progress bar for inline
 #        self.sim = nengo.Simulator(self.q_net_ass, progress_bar=True, optimize=True) #optimize trades in build for simulation time
         self.sim = nengo_dl.Simulator(self.q_net_ass, progress_bar=False)
@@ -194,9 +231,10 @@ class TrajectorySelector():
                 #not very nice but might be needed with bad hardware
                 
                 #needs xdotool
-#                os.system('xdotool search --name "torcs-bin" key p')
                 self.PauseIfUnpaused()
                 self.state_inputer.setVals(self.a_scanTrack) #state values only changed before action selection simulation
+                self.epsilon_inputer.Explore() #prepare for action selection
+                self.epsilon_inputer.SetActive()
                 self.time_inputer.setT(self.output_prober.time_val)
                 self.sim.run(0.5, progress_bar = False) #run simulation for x 
                 self.UnpauseIfPaused()
@@ -218,7 +256,7 @@ class TrajectorySelector():
         
         self.f_distPrevious = self.f_distCurrent
         self.f_distCurrent = msg_sensors.distFromStart
-        
+        self.f_trackPos = msg_sensors.trackPos
         if(self.f_lapTimeCurrent < self.f_lapTimeStart): 
             self.f_lapTimeStart = -(self.f_lapTimePrevious - self.f_lapTimeStart)
         if(self.f_distCurrent*10 < self.f_distStart): #*10 ensures condition to only hold at lap change
@@ -236,7 +274,7 @@ class TrajectorySelector():
         self.b_handshake = True
         if(msg_ctrl.meta == 1):
             print("A restart has been requested")
-            self.reward = -1
+            self.reward = -5
             self.trainOnReward()
             self.clearMemory()
         
@@ -257,6 +295,7 @@ class TrajectorySelector():
             f_timeNeeded = self.f_lapTimeCurrent - self.f_lapTimeStart #can be neglected if we 
             self.reward = (f_distTravelled/self.param_f_longitudinalDist) / (f_timeNeeded/self.param_f_minTime) #maybe pow 2
             self.reward *= self.reward #scale reward for more distinction between all trajectories
+            self.reward += (1-abs(self.f_trackPos))
         self.checkRewardValidity()
         self.trainOnReward()
         
@@ -274,6 +313,8 @@ class TrajectorySelector():
         if not(np.isnan(self.reward)): #no need to run if the reward does not count
             print("Training action \033[96m" + str(self.idx_last_action) + "\033[0m with reward: \033[96m" +str(self.reward) + "\033[0m")
             self.reward_inputer.RewardAction(self.idx_last_action, self.reward)
+            self.epsilon_inputer.OnTraining()
+            self.epsilon_inputer.SetTraining()
             self.sim.run(0.5,  progress_bar = False)
             self.reward_inputer.NoLearning()
         self.UnpauseIfPaused()
@@ -290,7 +331,7 @@ class TrajectorySelector():
 
 if __name__ == "__main__":
     if(len(os.popen("dpkg -l | grep xdotool").readlines()) == 0): #check whether xdotool is installed
-        print("\033[93mIt seems like xdotool is not installed! Please install it as torcs_ros_trajectory_selection relies on it \033[97m")
+        print("\033[93mIt seems like xdotool is not installed! Please install it as torcs_ros_trajectory_selection relies on it. Tested on Ubuntu 16.04 with xdotool 3.20150503.1 \033[97m")
     rospy.init_node("trajectory_selection")
     selector = TrajectorySelector(cwd)
     rospy.spin()

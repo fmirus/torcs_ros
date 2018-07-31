@@ -50,6 +50,8 @@ class FollowTrajectory():
         self.sen_rpm = 0 #engine rmp
         self.sen_gear = 0 #current gear
         self.sen_speedX = 0 #cars longitudinal speed
+        self.sen_laptime = 0 #current lap time, used to avoid premature restarts
+        
         
         #### publication parameters ####
         self.ctrl_accel = 0 #desired accel signal [calculated for low constant speed]
@@ -96,6 +98,7 @@ class FollowTrajectory():
         self.sen_trackpos = msg_sensors.trackPos #normalized trackpos [-1, 1]
         self.sen_rpm = msg_sensors.rpm #rpm [no unit]
         self.sen_gear = msg_sensors.gear #current gear
+        self.sen_laptime = msg_sensors.currentLapTime
         
     #get baselink frame position and orientation 
     def frame_callback(self, msg_frame):
@@ -173,14 +176,16 @@ class FollowTrajectory():
     def CheckForOutOfTrack(self):
         b_Restart = False
         if (abs(self.sen_trackpos) > 1): #if vehicle is off track or last point is , restart 
-            dt = rospy.Time.now().secs - self.race_start_time.secs #calculate whether race has just started
-            if (dt > 5): #do not restart if race has just started
+#            dt = rospy.Time.now().secs - self.race_start_time.secs #calculate whether race has just started
+#            if (dt > 5): #do not restart if race has just started
+            if(self.sen_laptime > 5):
                 b_Restart = True 
                 print("\033[96mClient node is being restarted as vehicle was off track \033[97m") 
 
         elif (self.sen_speedX < 3): #if low speed, car is probably stuck
-            dt = rospy.Time.now().secs - self.race_start_time.secs #calculate whether race has just started
-            if (dt > 15): #do not restart if race has just started
+#            dt = rospy.Time.now().secs - self.race_start_time.secs #calculate whether race has just started
+            if(self.sen_laptime > 15):
+#            if (dt > 15): #do not restart if race has just started
                 b_Restart = True 
                 print("\033[96mClient node is being restarted as vehicle seemed to be stuck \033[97m") 
 
@@ -197,9 +202,12 @@ class FollowTrajectory():
             self.trajectory = Path() #reset selected trajectory to be empty
             self.race_start_time = rospy.Time.now() #new race started, reinitialize time            
             os.system("rosnode kill /torcs_ros/torcs_ros_client_node") #kills client node with terminal command
-            rospy.sleep(1) #give the system enough time to have killed of node
+#            os.system("rosnode kill /torcs_ros/trajectory_ctrl")
+            rospy.sleep(5) #give the system enough time to have killed of node and calculate reward
 #            os.system("roslaunch torcs_ros_client torcs_ros_client_ns.xml") #relaunch client node with roslaunch command when not in namespace yet (if called manually from console)
-            os.system("roslaunch torcs_ros_client torcs_ros_client.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
+            os.system("roslaunch torcs_ros_client torcs_ros_client_only.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
+#            os.system("roslaunch torcs_ros_trajectory_ctrl torcs_ros_trajectory_ctrl.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
+
             rospy.wait_for_message(self.sensors_topic, TORCSSensors) #wait for a message from client node to ensure it has restarted
             #notify generation node that new trajectory has to be selected as game has been resarted
             self.needForAction_msg.data = True  

@@ -1,13 +1,16 @@
 <?xml version="1.0"?>
 <launch>
 
-  <arg name="driver" default="true"/>
+  <arg name="driver" default="false"/>
   <arg name="rviz" default="true"/>
 
 
   <group ns="torcs_ros" >
     <!-- start torcs ros client -->
-    <include file="$(find torcs_ros_client)/launch/torcs_ros_client.xml"/>
+    <include file="$(find torcs_ros_client)/launch/torcs_ros_client_only.xml"/>
+
+    <!-- start torcs ros client watchdog-->
+    <include file="$(find torcs_ros_client)/launch/torcs_ros_watchdog_only.xml"/>
 
     <!-- start torcs image publisher -->
     <include file="$(find torcs_img_publisher)/launch/torcs_img_publisher.xml"/>

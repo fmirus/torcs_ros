@@ -14,14 +14,13 @@ import matplotlib.pyplot as plt
 import nengo_dl
 
 
-def qnet_associative(b_Direct, signal, i_reward, i_time, i_output, n_action, label=''):
+def qnet_associative(b_Direct, signal, i_reward, i_time, i_epsilon, i_output, n_action, label=''):
     param_neuron = nengo.neurons.LIF()
     if b_Direct == True:
         param_neuron = nengo.neurons.Direct()
         
     n_dim = len(signal)
-#    n_action = 21 #currently hardcoded; should be parametrizable
-    epsilon = 0
+    epsilon = 0.25
     
     
 #    tau_short = 0.005
@@ -31,14 +30,17 @@ def qnet_associative(b_Direct, signal, i_reward, i_time, i_output, n_action, lab
     with nengo.Network(label=label) as net: 
         #action selection with decaying epsilon exploration
         def func_epsilonMax(t, x):
-            if x[-1] >= epsilon/(t/1000): 
+#            if x[-1] >= epsilon/(t/1000): 
+            if x[-1] < 0: #mark for 
                 idx = np.argmax(x[:-1])
             else: #explore
-                idx = np.random.randint(0, n_action)
+                idx = int(round(x[-1]))
+#                idx = np.random.randint(0, n_action)
+#                print(idx)
             retVec = np.zeros(n_action)
-            retVec[idx] = 1
+            retVec[idx] = 1 
             retVec = retVec.tolist()
-            retVec.append(x[idx])
+            retVec.append(x[idx]) #returns Q-value associated to chosen action
             return retVec
         
         def func_afterT(t, x):
@@ -49,7 +51,7 @@ def qnet_associative(b_Direct, signal, i_reward, i_time, i_output, n_action, lab
                 return (len(x)-1)*[0]
 
         net.stateIn = nengo.Node(output=signal, size_in=None, size_out=n_dim)
-        net.eGreedyIn = nengo.Node(output=lambda t: np.random.uniform(0,1), label='epsilon greedy input')
+        net.eGreedyIn = nengo.Node(output=i_epsilon, label='epsilon greedy input')
         
         #intermediate ensemble needed as decoders of this are what are learned
         #can be ensemble array or ensemble dependent on whether you want to imply the correlation between the signals
@@ -136,7 +138,7 @@ if __name__ == "__main__":
     reward = reward_function(0)
     output = RNodeOutputProber(n_action)
     
-    SNN_Q_ass = qnet_associative(False, signal, reward_function, 1.5, output.ProbeFunc, 21)
+    SNN_Q_ass = qnet_associative(False, signal, reward_function, 1.5, np.random.uniform(0, 1), output.ProbeFunc, 21)
     nengo.rc.set('progress', 'progress_bar', 'nengo.utils.progress.TerminalProgressBar') #Terminal progress bar for inline
     
     with SNN_Q_ass:
@@ -156,9 +158,9 @@ if __name__ == "__main__":
         sim = nengo_dl.Simulator(SNN_Q_ass, progress_bar=True)
         sim.run(2.5) 
         
-        [plt.plot(sim.trange(), sim.data[pr_val_reps][:,n], label='input '+str(n)) for n in range(n_dim)]
-        plt.legend(loc='best')
-        plt.show()
+#        [plt.plot(sim.trange(), sim.data[pr_val_reps][:,n], label='input '+str(n)) for n in range(n_dim)]
+#        plt.legend(loc='best')
+#        plt.show()
         
         [plt.plot(sim.trange(), sim.data[pr_Qvals][:,n], label='action '+str(n)) for n in range(n_action)]
         plt.legend(loc='best', ncol=4)
