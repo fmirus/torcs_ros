@@ -59,8 +59,8 @@ class FollowTrajectory():
         self.ctrl_steering = 0 #desired steering [calculated from trajectory]
         self.ctrl_gear = 0 #desired gear [calculated from look up table]
         self.needForAction_msg = Bool() #message that indicates that end of a trajectory has been reached
-        
-        
+        self.msg_restart = Bool()
+      
         #### calculation parameters and variables #### 
         self.param_kappa = 0.75/2 #value used to adjust desired heading to, experimentlly determined. 0.75 lead to small oscillation
         self.param_steerLock = np.deg2rad(21) #max. steerLock in torcs/data/cars/tbt1 is 21 deg
@@ -75,13 +75,13 @@ class FollowTrajectory():
         #### publications ####
         self.pub_ctrl = rospy.Publisher(ctrl_topic, TORCSCtrl, queue_size=10) #publish control commands
         self.pub_needTrajectory = rospy.Publisher("/torcs_ros/ctrl_signal_action", Bool, queue_size=1) #publish a control signal that indicates that a  new trajectory is needed
-  
+        self.pub_demandRestart = rospy.Publisher("/torcs_ros/demandRestart", Bool, queue_size = 1)
+
         #### subscriptions ####
         self.sub_trajectory = rospy.Subscriber(trajectory_topic, Path, self.trajectory_callback) #subscribe to selected trajectory in world frame
         self.sub_sensors = rospy.Subscriber(sensors_topic, TORCSSensors, self.sensors_callback) #subscribe to sensor values for evaluation
         self.sub_frame = rospy.Subscriber(frame_topic, TFMessage, self.frame_callback, queue_size=1) #subscribe to frame transformations
         self.sub_speed = rospy.Subscriber(speed_topic, TwistStamped, self.speed_callback)
-        
         
 
                 
@@ -154,10 +154,11 @@ class FollowTrajectory():
             self.pub_ctrl.publish(msg_ctrl) #publish
             
 
-            if (f_distToEnd < 1): #check whether end of trajectory has been reached (within a margin)
+            if (f_distToEnd < 1.5): #check whether end of trajectory has been reached (within a margin)
                 self.needForAction_msg.data = True #indicate a new trajectory is needed
 
             self.pub_needTrajectory.publish(self.needForAction_msg) #send message whether new control is needed or not
+            self.pub_ctrl.publish(msg_ctrl)            
             self.CheckForOutOfTrack() #restart server if vehicle is of track
 
         else: #no trajectory message has been received yet
@@ -190,25 +191,26 @@ class FollowTrajectory():
                 print("\033[96mClient node is being restarted as vehicle seemed to be stuck \033[97m") 
 
         if b_Restart == True:
-
-            msg_ctrl = TORCSCtrl() #message container
-            msg_ctrl.meta = 1 #set restart flag
-            #ensure last sent control command is no movement
-            msg_ctrl.accel = 0 
-            msg_ctrl.steering = 0
-            msg_ctrl.brake = 1
-            self.pub_ctrl.publish(msg_ctrl) #demand restart
-            
+            self.pub_demandRestart.publish(self.msg_restart)
+#            rospy.sleep(2) #wait to ensure game is unpaused DEBUG, can be done nicer
+#            msg_ctrl = TORCSCtrl() #message container
+#            msg_ctrl.meta = 1 #set restart flag
+#            #ensure last sent control command is no movement
+#            msg_ctrl.accel = 0 
+#            msg_ctrl.steering = 0
+#            msg_ctrl.brake = 1
+#            self.pub_ctrl.publish(msg_ctrl) #demand restart
+#            
             self.trajectory = Path() #reset selected trajectory to be empty
-            self.race_start_time = rospy.Time.now() #new race started, reinitialize time            
-            os.system("rosnode kill /torcs_ros/torcs_ros_client_node") #kills client node with terminal command
-#            os.system("rosnode kill /torcs_ros/trajectory_ctrl")
-            rospy.sleep(5) #give the system enough time to have killed of node and calculate reward
-#            os.system("roslaunch torcs_ros_client torcs_ros_client_ns.xml") #relaunch client node with roslaunch command when not in namespace yet (if called manually from console)
-            os.system("roslaunch torcs_ros_client torcs_ros_client_only.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
-#            os.system("roslaunch torcs_ros_trajectory_ctrl torcs_ros_trajectory_ctrl.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
-
+#            os.system("rosnode kill /torcs_ros/torcs_ros_client_node") #kills client node with terminal command
+##            os.system("rosnode kill /torcs_ros/trajectory_ctrl")
+#            rospy.sleep(1.5) #give the system enough time to have killed of node and calculate reward
+##            os.system("roslaunch torcs_ros_client torcs_ros_client_ns.xml") #relaunch client node with roslaunch command when not in namespace yet (if called manually from console)
+#            os.system("roslaunch torcs_ros_client torcs_ros_client_only.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
+##            os.system("roslaunch torcs_ros_trajectory_ctrl torcs_ros_trajectory_ctrl.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
+            rospy.wait_for_message("/torcs_ros/isRestarted", Bool)
             rospy.wait_for_message(self.sensors_topic, TORCSSensors) #wait for a message from client node to ensure it has restarted
+
             #notify generation node that new trajectory has to be selected as game has been resarted
             self.needForAction_msg.data = True  
             self.pub_needTrajectory.publish(self.needForAction_msg)

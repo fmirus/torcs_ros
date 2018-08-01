@@ -9,8 +9,8 @@
     <!-- start torcs ros client -->
     <include file="$(find torcs_ros_client)/launch/torcs_ros_client_only.xml"/>
 
-    <!-- start torcs ros client watchdog-->
-    <include file="$(find torcs_ros_client)/launch/torcs_ros_watchdog_only.xml"/>
+    <!-- start torcs ros client watchdog and gamestate changer-->
+    <include file="$(find torcs_ros_client)/launch/torcs_ros_client_rest.xml"/>
 
     <!-- start torcs image publisher -->
     <include file="$(find torcs_img_publisher)/launch/torcs_img_publisher.xml"/>

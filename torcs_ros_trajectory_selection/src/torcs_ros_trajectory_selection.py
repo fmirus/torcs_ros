@@ -11,7 +11,7 @@ import rospy
 import nengo
 import nengo_dl
 import subprocess
-import copy
+
 
 from geometry_msgs.msg import TwistStamped
 from sensor_msgs.msg import LaserScan
@@ -23,132 +23,15 @@ import nengo_nets_qnet_associative as snn
 import sys
 import os
 import rospkg
+import datetime
 
 cwd = rospkg.RosPack().get_path('torcs_ros_trajectory_gen')
 sys.path.append(cwd[:-24] + "common")
 cwd = cwd[:-24]
 
 from bzReadTrajectoryParams import readTrajectoryParams, calcTrajectoryAmount
+from ros_to_nengo_nodes import NodeInputScan, NodeInputReward, NodeInputStartTime, NodeInputEpsilon, NodeOutputProber
 
-#A class that can be passed to a nengo node as input
-#It subscribes to the scan topic in order to create the nengo input
-class NodeInputScan():
-    def __init__(self, length, scan_topic = "/torcs_ros/scan_track"):
-         #### various parameters and variables ####
-        #choose index of scanners to use
-        #angle min/max: +-1.57; increment 0.1653; instantenous; range: 200 m
-
-        self.a_selectScanTrack = [3, 6, 11, -7, -6]
-        self.param_rangeNormalize = 100 #value used for normalization. all values above will be considered as 1   
-  
-        #### subscription parameters ####      
-        self.a_scanTrack = []
-#        [self.a_scanTrack.append(-1) for idx in self.a_selectScanTrack]
-        [self.a_scanTrack.append(-1) for idx in range(length)]
-
-        
-        ##### subscribers #####
-        self.sub_scanTrack = rospy.Subscriber(scan_topic, LaserScan, self.scan_callback)
-        
-    #Get values from message, normalize them and clip them between 0 and 1
-    def scan_callback(self, msg_scan):
-        pass
-#        self.a_scanTrack = [np.clip(msg_scan.ranges[idx]/self.param_rangeNormalize, 0, 1) for idx in self.a_selectScanTrack]
-        
-    #Call function needed for nengo, called within each simulation step 
-    #returns a constant input over the entirety of the simulation dependent on the sensor state when starting the simulation
-    def __call__(self, t):
-#        print(t)
-        return self.a_scanTrack
-    
-    #Used for debug purposes to ensure object has not been destructed
-    def __del__(self):
-        print("The msg to nengo object is being destructed")
-        
-    #Needed for nengo net to be parametrizable
-    def __len__(self):
-        return len(self.a_selectScanTrack)
-    
-    def setVals(self, ia_scans):
-        self.a_scanTrack = ia_scans
-        
-        
-#A class that can be passed to a nengo node as input
-#Gets the reward vector from ros whenever a trajectory has been completed
-#Returns that reward vector on every timestep with the __call__ function        
-class NodeInputReward():
-    def __init__(self, n_action):
-        self.reward = 0 #initialize reward to be 0 for all actions
-        self.oneHot_action = n_action*[1] #inverse one hot, as it is used as inhibiting connection
-        self.retVec = (n_action+1)*[1]
-    def __call__(self, t):
-        return self.retVec #return current reward
-    
-    def NoLearning(self):
-        self.reward = 0 #reset reward array to 0
-        self.oneHot_action = [1 for f in self.oneHot_action]
-        
-    def RewardAction(self, i, i_reward):
-        self.reward = i_reward #set a specific action to have a reward
-        self.oneHot_action[i] = 0
-        self.retVec = copy.copy(self.oneHot_action)
-        self.retVec.append(self.reward) 
-        
-        
-class NodeInputStartTime():
-    def __init__(self):
-        self.t_start = 0
-    def __call__(self, t):
-        return self.t_start
-    def setT(self, t):
-        self.t_start = t
-        
-class NodeInputEpsilon():
-    def __init__(self, in_action):
-        self.epsilon_init = 0.5
-        self.epsilon = copy.copy(self.epsilon_init)
-        self.val = -1
-        self.lastVal = -1
-        self.nextVal = -1
-        self.n_action = in_action
-        self.episode = 1.0
-        
-    def DoNotExplore(self):
-        self.val = -1
-    def Explore(self):
-        rand = np.random.uniform(0, 1)
-        self.lastVal = self.nextVal
-        if (rand < self.epsilon):
-            self.nextVal = np.random.randint(0, self.n_action-1)
-        else:
-            self.nextVal = -1
-        
-        if (self.lastVal != -1):
-            print("\033[30mExploring action: " +str(self.lastVal) + " with current th_epsilon: " +str(self.epsilon) +"\033[0m")
-            
-    def SetActive(self):
-        self.val = self.nextVal
-    def SetTraining(self):
-        self.val = self.lastVal
-    def __call__(self, t):
-        return self.val
-    def OnTraining(self):
-        self.episode += 1
-#        self.epsiolon_init
-        self.epsilon = np.clip(self.epsilon_init/(float(self.episode)/20), 0, 1)
-
-        
-
-#A class that can be passed to a nengo node as an output probe
-#Member variables only save last state, therefore eliminating a need for a nengo.Probe or similar
-class NodeOutputProber():
-    def __init__ (self, n_action):
-        self.probe_vals = [0 for n in range(n_action+1)] #init array, one entry each for one-hot encoding and one for the highest q-value
-        self.time_val = 0 #can save current simulation time as well, not used currently
-    def ProbeFunc(self, t, x):
-        self.probe_vals = x #update members to nengo output
-        self.time_val = t 
-        return self.probe_vals
 
         
 class TrajectorySelector():
@@ -166,7 +49,8 @@ class TrajectorySelector():
         self.param_n_action = calcTrajectoryAmount(self.param_n_action) #get how many trajectories are actually used
         self.calculateRewardRange() #calculate normalization factor for reward from parameters
         self.reward = np.nan
-        self.b_pause = False
+        self.cwd = cwd
+        self.today = datetime.date.today()
         
         #### subscription parameters ####
         self.b_TrajectoryNeeded = False
@@ -181,6 +65,7 @@ class TrajectorySelector():
         self.a_scanTrack = []
         [self.a_scanTrack.append(-1) for idx in self.a_selectScanTrack]
         self.b_handshake = False
+        self.f_trackPos = 0
 
         
         #### nengo net and parameters #### 
@@ -198,6 +83,12 @@ class TrajectorySelector():
         self.b_doSimulateOnce = True
         self.idx_last_action = 0
         self.idx_next_action = 0
+        self.msg_pause = Bool()
+
+        #### publisher ####
+        self.pub_trajectorySelection = rospy.Publisher("/torcs_ros/TrajectorySelector", Int8, queue_size=1) #negative values are parsed when no trajectory should be selected
+        self.pub_demandPause = rospy.Publisher("/torcs_ros/demandPause", Bool,queue_size = 1)
+        
         
         ##### subscribers #####
         self.sub_scanTrack = rospy.Subscriber(scan_topic, LaserScan, self.scan_callback)
@@ -207,10 +98,7 @@ class TrajectorySelector():
         self.sub_handshake = rospy.Subscriber("/torcs_ros/gen2selHandshake", Bool, self.handshake_callback)
         self.sub_ctrlCmd = rospy.Subscriber(ctrl_topic, TORCSCtrl, self.ctrl_callback)
         
-        #### publisher ####
-        self.pub_trajectorySelection = rospy.Publisher("/torcs_ros/TrajectorySelector", Int8, queue_size=1) #negative values are parsed when no trajectory should be selected
-        
-        
+
     def scan_callback(self, msg_scan):
         self.a_scanTrack = [np.clip(msg_scan.ranges[idx]/self.param_rangeNormalize, 0, 1) for idx in self.a_selectScanTrack]
 
@@ -218,10 +106,12 @@ class TrajectorySelector():
         self.b_TrajectoryNeeded = msg_action.data
         if (self.b_TrajectoryNeeded == True):
             if self.b_doSimulateOnce:
+                self.pub_demandPause.publish(self.msg_pause)
                 self.calculateReward()
                 ###select previously run output and resimulate in off-time to calculate next output
                 msg_sel = Int8()
                 msg_sel.data = self.idx_next_action
+#                msg_sel.data = 0
                 self.pub_trajectorySelection.publish(msg_sel)
                 self.f_lapTimeStart = self.f_lapTimeCurrent
                 self.f_distStart = self.f_distCurrent
@@ -231,13 +121,13 @@ class TrajectorySelector():
                 #not very nice but might be needed with bad hardware
                 
                 #needs xdotool
-                self.PauseIfUnpaused()
+ 
                 self.state_inputer.setVals(self.a_scanTrack) #state values only changed before action selection simulation
                 self.epsilon_inputer.Explore() #prepare for action selection
                 self.epsilon_inputer.SetActive()
                 self.time_inputer.setT(self.output_prober.time_val)
                 self.sim.run(0.5, progress_bar = False) #run simulation for x 
-                self.UnpauseIfPaused()
+                self.pub_demandPause.publish(self.msg_pause)
                 self.idx_last_action = self.idx_next_action
                 self.idx_next_action = np.argmax(np.array(self.output_prober.probe_vals[:-1]))
                 self.b_doSimulateOnce = False #don't simualte again until this trajectory has been published (which means that the action signal will turn to False)
@@ -275,9 +165,10 @@ class TrajectorySelector():
         if(msg_ctrl.meta == 1):
             print("A restart has been requested")
             self.reward = -5
+            self.pub_demandPause.publish(self.msg_pause)
             self.trainOnReward()
-            self.clearMemory()
-        
+            self.pub_demandPause.publish(self.msg_pause)
+            
         
     #calculate the lowest amount of time needed at the expected speed to traverse the longitudinal distance if the road were to be straight
     #this will then be used to calculate the reward
@@ -309,29 +200,25 @@ class TrajectorySelector():
         pass
     
     def trainOnReward(self):
-        self.PauseIfUnpaused()
         if not(np.isnan(self.reward)): #no need to run if the reward does not count
             print("Training action \033[96m" + str(self.idx_last_action) + "\033[0m with reward: \033[96m" +str(self.reward) + "\033[0m")
             self.reward_inputer.RewardAction(self.idx_last_action, self.reward)
             self.epsilon_inputer.OnTraining()
             self.epsilon_inputer.SetTraining()
             self.sim.run(0.5,  progress_bar = False)
+            if((self.epsilon_inputer.episode-2) % 200 == 0):
+                dir_name = self.cwd[:-14] + "nengo_parameters"
+                if not os.path.isdir(dir_name):
+                    os.mkdir(dir_name)
+                path_name = dir_name + "/Episode-"+ str(int(self.epsilon_inputer.episode)-2)+"_Date-" + str(self.today.year) + "-" + str(self.today.month) + "-" + str(self.today.day)
+                    
+                print("\033[96mEpisode " + str(int(self.epsilon_inputer.episode-2)) + " reached. Saving parameters to " + path_name + "\033[0m")
+                self.sim.save_params(path_name)
             self.reward_inputer.NoLearning()
-        self.UnpauseIfPaused()
 
-    def PauseIfUnpaused(self):
-        if(self.b_pause == False):
-            self.b_pause = True
-            subprocess.call('xdotool search --name "torcs-bin" key p', shell=True) 
-    
-    def UnpauseIfPaused(self):
-        if(self.b_pause == True):
-            self.b_pause = False
-            subprocess.call('xdotool search --name "torcs-bin" key p', shell=True) 
+
 
 if __name__ == "__main__":
-    if(len(os.popen("dpkg -l | grep xdotool").readlines()) == 0): #check whether xdotool is installed
-        print("\033[93mIt seems like xdotool is not installed! Please install it as torcs_ros_trajectory_selection relies on it. Tested on Ubuntu 16.04 with xdotool 3.20150503.1 \033[97m")
     rospy.init_node("trajectory_selection")
     selector = TrajectorySelector(cwd)
     rospy.spin()

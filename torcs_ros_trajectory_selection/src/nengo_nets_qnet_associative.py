@@ -176,6 +176,7 @@ if __name__ == "__main__":
         plt.plot(sim.trange(), sim.data[pr_afterDelay][:,10], label='Delayed/Inhibited Error')
         plt.plot(sim.trange(), sim.data[pr_Qvals][:,10], label = 'Calculated output')
         plt.legend(loc='best')
+        
 
         
 

@@ -21,7 +21,7 @@ sys.path.append(cwd[:-16] + "common")
 cwd = cwd[:-16]
 
 from bzRestartTORCSraceGUI import RestartTORCSRace
-
+from std_msgs.msg import Bool
 class Watchdog():
     def __init__(self, sensors_topic = "/torcs_ros/sensors_state"):
         
@@ -33,6 +33,8 @@ class Watchdog():
         self.n_counterConnection = 0
         self.n_counterPause = 0
         self.n_counterComp = 20
+
+        self.pub_demandPause = rospy.Publisher("/torcs_ros/demandPause", Bool,queue_size = 1)
             
         self.sub_sensors = rospy.Subscriber(sensors_topic, TORCSSensors, callback = self.callback)
         self.sub_log = rospy.Subscriber("/rosout", Log, callback =self.log_callback)
@@ -45,39 +47,38 @@ class Watchdog():
         
     def log_callback(self, msg):
         if(self.b_HasBeenLaunchedOnce): #avoid clicking before first run
-            if ("torcs_ros_client_node.cpp" in msg.file):
-                if ("Not connected to server yet!!" in msg.msg): #theoretically it should be enough to check for this
-                    dt = rospy.Time.now() - self.log_callback_time_connection 
-                    self.log_callback_time_connection = rospy.Time.now()
-                    if(dt.secs < 3):
-                        self.n_counterConnection += 1
-                        if(self.n_counterConnection >= self.n_counterComp):
-                            print("\033[96mWatchdog is restarting TORCS via the GUI and restarting client node \033[0m")
-                            os.system("rosnode kill /torcs_ros/trajectory_ctrl")
-                            
-#                            os.system("rosnode kill /torcs_ros/torcs_ros_client_node") #kills client node with terminal command
-                            rospy.sleep(1) #give the system enough time to have killed of node
-                            RestartTORCSRace()
-#                            os.system("roslaunch torcs_ros_trajectory_ctrl torcs_ros_trajectory_ctrl.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
-#                            rospy.sleep(1)
-                            os.system("roslaunch torcs_ros_client torcs_ros_client_only.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
-                            self.n_counterConnection = 0
-                    else:
-                        self.n_counterConnection = 0
+#            if ("torcs_ros_client_node.cpp" in msg.file):
+#                pass
+#                if ("Not connected to server yet!!" in msg.msg): #theoretically it should be enough to check for this
+#                    dt = rospy.Time.now() - self.log_callback_time_connection 
+#                    self.log_callback_time_connection = rospy.Time.now()
+#                    if(dt.secs < 3):
+#                        self.n_counterConnection += 1
+#                        if(self.n_counterConnection >= self.n_counterComp):
+#                            print("\033[96mWatchdog is restarting TORCS via the GUI and restarting client node \033[0m")
+#                            os.system("rosnode kill /torcs_ros/trajectory_ctrl")
+#                            rospy.sleep(1) #give the system enough time to have killed of node
+#                            RestartTORCSRace()
+##                            os.system("roslaunch torcs_ros_trajectory_ctrl torcs_ros_trajectory_ctrl.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
+##                            rospy.sleep(1)
+#                            os.system("roslaunch torcs_ros_client torcs_ros_client_only.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
+#                            self.n_counterConnection = 0
+#                    else:
+#                        self.n_counterConnection = 0
                 if("Server did not respond in 1 second" in msg.msg):
                     dt = rospy.Time.now() - self.log_callback_time_pause 
                     self.log_callback_time_pause = rospy.Time.now()
-                    print("Pause callback received")
                     if(dt.secs < 3):
                         self.n_counterPause += 1
                         if(self.n_counterPause >= self.n_counterComp):
-                            print("\033[96mWatchdog is unpausing TORCS \033[0m")
+                            print("\033[96mWatchdog is wanting to unpause TORCS \033[0m")
     #                        rospy.sleep(5) #give enough time to manually stop this process
-                            subprocess.call('xdotool search --name "torcs-bin" key p', shell=True) 
+#                            subprocess.call('xdotool search --name "torcs-bin" key p', shell=True) 
+                            self.pub_demandPause.publish(Bool())
                             self.n_counterPause = 0
                     else:
                         self.n_counterPause = 0
-        
+#        
                         #handle case where game is connected but 
 
     #the restart will only work if the game is waiting for the scr_server as it will not connect otherwise
@@ -124,8 +125,8 @@ if __name__ == "__main__":
     rospy.init_node("torcs_ros_client_watchdog")
     watchdog = Watchdog()
     while not rospy.is_shutdown(): 
-        watchdog.is_client_alive() #check whether client is dead
-        watchdog.has_client_connected() #check whether client is connected to torcs server
+#        watchdog.is_client_alive() #check whether client is dead
+#        watchdog.has_client_connected() #check whether client is connected to torcs server
         rospy.sleep(1)
         
         
