@@ -100,6 +100,7 @@ class TrajectorySelector():
         self.sub_handshake = rospy.Subscriber("/torcs_ros/gen2selHandshake", Bool, self.handshake_callback)
         self.sub_ctrlCmd = rospy.Subscriber(ctrl_topic, TORCSCtrl, self.ctrl_callback)
         self.sub_restart = rospy.Subscriber("/torcs_ros/restart_process", Bool, self.restart_callback)
+        self.sub_save = rospy.Subscriber("/torcs_ros/save", Bool, self.save_callback)
 
     def scan_callback(self, msg_scan):
         self.a_scanTrack = [np.clip(msg_scan.ranges[idx]/self.param_rangeNormalize, 0, 1) for idx in self.a_selectScanTrack]
@@ -152,7 +153,7 @@ class TrajectorySelector():
         self.f_angle = msg_sensors.angle
         if(self.f_lapTimeCurrent < self.f_lapTimeStart): 
             self.f_lapTimeStart = -(self.f_lapTimePrevious - self.f_lapTimeStart)
-        if(self.f_distCurrent*10 < self.f_distStart): #*10 ensures condition to only hold at lap change
+        if(self.f_distCurrent*10 < self.f_distStart): #*10 ensures condition to only hold at lap change 
             self.f_distStart = -(self.f_distPrevious - self.f_distStart)
             print("Crossing start line")
             
@@ -184,6 +185,9 @@ class TrajectorySelector():
         else:
             self.b_hasBeenTrained = False
         
+    def save_callback(self, msg_save):
+        self.saveNengoParams()
+        
     #calculate the lowest amount of time needed at the expected speed to traverse the longitudinal distance if the road were to be straight
     #this will then be used to calculate the reward
     #higher values can be achieved in curves, but it is not absoulutely necessary to limit this value to one
@@ -200,7 +204,7 @@ class TrajectorySelector():
             f_timeNeeded = self.f_lapTimeCurrent - self.f_lapTimeStart #can be neglected if we 
             self.reward = (f_distTravelled/self.param_f_longitudinalDist) / (f_timeNeeded/self.param_f_minTime) #maybe pow 2
             self.reward *= self.reward #scale reward for more distinction between all trajectories
-            self.reward += (1-abs(self.f_trackPos)) # + (1-abs(self.f_angle)/2)
+            self.reward += (1-abs(self.f_trackPos)) # + (1-abs(self.f_angle)/2) or delta trackpos and delta angle (only in associative) 
         self.checkRewardValidity()
         self.trainOnReward()
         
@@ -221,16 +225,18 @@ class TrajectorySelector():
             self.epsilon_inputer.SetTraining()
             self.sim.run(0.5,  progress_bar = False)
             if((self.epsilon_inputer.episode-2) % 200 == 0):
-                dir_name = self.cwd[:-14] + "nengo_parameters"
-                if not os.path.isdir(dir_name):
-                    os.mkdir(dir_name)
-                path_name = dir_name + "/Episode-"+ str(int(self.epsilon_inputer.episode)-2)+"_Date-" + str(self.today.year) + "-" + str(self.today.month) + "-" + str(self.today.day)
-                    
-                print("\033[96mEpisode " + str(int(self.epsilon_inputer.episode-2)) + " reached. Saving parameters to " + path_name + "\033[0m")
-                self.sim.save_params(path_name)
+                self.saveNengoParams()
+ 
             self.reward_inputer.NoLearning()
 
-
+    def saveNengoParams(self):
+        dir_name = self.cwd[:-14] + "nengo_parameters"
+        if not os.path.isdir(dir_name):
+            os.mkdir(dir_name)
+        path_name = dir_name + "/Episode-"+ str(int(self.epsilon_inputer.episode)-2)+"_Date-" + str(self.today.year) + "-" + str(self.today.month) + "-" + str(self.today.day)
+        print("\033[96mEpisode " + str(int(self.epsilon_inputer.episode-2)) + " reached. Saving parameters to " + path_name + "\033[0m")
+        self.sim.save_params(path_name)
+        
 
 if __name__ == "__main__":
     rospy.init_node("trajectory_selection")
