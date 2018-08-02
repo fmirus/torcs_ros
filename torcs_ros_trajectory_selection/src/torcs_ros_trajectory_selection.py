@@ -53,6 +53,7 @@ class TrajectorySelector():
         self.today = datetime.date.today()
         
         #### subscription parameters ####
+        self.f_angle = 0
         self.b_TrajectoryNeeded = False
         self.f_lapTimeStart = 0
         self.f_lapTimeCurrent = 0 
@@ -66,6 +67,7 @@ class TrajectorySelector():
         [self.a_scanTrack.append(-1) for idx in self.a_selectScanTrack]
         self.b_handshake = False
         self.f_trackPos = 0
+        self.b_hasBeenTrained = False
 
         
         #### nengo net and parameters #### 
@@ -97,7 +99,7 @@ class TrajectorySelector():
         self.sub_speed = rospy.Subscriber(speed_topic, TwistStamped, self.speed_callback)
         self.sub_handshake = rospy.Subscriber("/torcs_ros/gen2selHandshake", Bool, self.handshake_callback)
         self.sub_ctrlCmd = rospy.Subscriber(ctrl_topic, TORCSCtrl, self.ctrl_callback)
-        
+        self.sub_restart = rospy.Subscriber("/torcs_ros/restart_process", Bool, self.restart_callback)
 
     def scan_callback(self, msg_scan):
         self.a_scanTrack = [np.clip(msg_scan.ranges[idx]/self.param_rangeNormalize, 0, 1) for idx in self.a_selectScanTrack]
@@ -147,6 +149,7 @@ class TrajectorySelector():
         self.f_distPrevious = self.f_distCurrent
         self.f_distCurrent = msg_sensors.distFromStart
         self.f_trackPos = msg_sensors.trackPos
+        self.f_angle = msg_sensors.angle
         if(self.f_lapTimeCurrent < self.f_lapTimeStart): 
             self.f_lapTimeStart = -(self.f_lapTimePrevious - self.f_lapTimeStart)
         if(self.f_distCurrent*10 < self.f_distStart): #*10 ensures condition to only hold at lap change
@@ -162,13 +165,24 @@ class TrajectorySelector():
         
     def ctrl_callback(self, msg_ctrl):
         self.b_handshake = True
-        if(msg_ctrl.meta == 1):
-            print("A restart has been requested")
-            self.reward = -5
-            self.pub_demandPause.publish(self.msg_pause)
-            self.trainOnReward()
-            self.pub_demandPause.publish(self.msg_pause)
-            
+#        if(msg_ctrl.meta == 1):
+#            print("A restart has been requested")
+#            self.reward = -5
+#            self.pub_demandPause.publish(self.msg_pause)
+#            self.trainOnReward()
+#            self.pub_demandPause.publish(self.msg_pause)
+          
+    def restart_callback(self, msg_restart):
+        if (msg_restart.data == True):
+            if(self.b_hasBeenTrained == False):
+                self.b_hasBeenTrained = True
+                print("A restart has been requested")
+                self.reward = -5
+                self.pub_demandPause.publish(self.msg_pause)
+                self.trainOnReward()
+                self.pub_demandPause.publish(self.msg_pause)
+        else:
+            self.b_hasBeenTrained = False
         
     #calculate the lowest amount of time needed at the expected speed to traverse the longitudinal distance if the road were to be straight
     #this will then be used to calculate the reward
@@ -186,7 +200,7 @@ class TrajectorySelector():
             f_timeNeeded = self.f_lapTimeCurrent - self.f_lapTimeStart #can be neglected if we 
             self.reward = (f_distTravelled/self.param_f_longitudinalDist) / (f_timeNeeded/self.param_f_minTime) #maybe pow 2
             self.reward *= self.reward #scale reward for more distinction between all trajectories
-            self.reward += (1-abs(self.f_trackPos))
+            self.reward += (1-abs(self.f_trackPos)) # + (1-abs(self.f_angle)/2)
         self.checkRewardValidity()
         self.trainOnReward()
         

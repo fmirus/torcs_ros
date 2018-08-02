@@ -416,8 +416,13 @@ void TORCSROSClient::update()
       opponents_pub_.publish(opponents_);
       focus_pub_.publish(focus_);
       speed_pub_.publish(speed_);
-      restart_pub_.publish(restart_);
 
+      if(torcs_ctrl_.meta == 1)
+      {
+        restart_.data = true;
+      }
+      restart_pub_.publish(restart_);
+      restart_.data = false;
       //Broadcast tf:Broadcast
       static tf::TransformBroadcaster broadcast; //broadcast object
       tf::Transform base_link; //car frame in world coordinates

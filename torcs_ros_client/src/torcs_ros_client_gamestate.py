@@ -26,7 +26,7 @@ class GameState():
         self.pub_ctrl = rospy.Publisher("/torcs_ros/ctrl_cmd", TORCSCtrl, queue_size=1) #publisher for meta restart
         self.pub_isRestarted = rospy.Publisher("/torcs_ros/isRestarted", Bool, queue_size=1) #publisher for flag that torcs has been restarted
         
-        self.sub_demandPause = rospy.Subscriber("/torcs_ros/demandPause", Bool, self.callback_pause, queue_size=5) #subscription for pause demands
+        self.sub_demandPause = rospy.Subscriber("/torcs_ros/demandPause", Bool, self.callback_pause, queue_size=1) #subscription for pause demands
         self.sub_demandRestart = rospy.Subscriber("/torcs_ros/demandRestart", Bool, self.callback_restart, queue_size=1) #subscription for restart demands
         
     #pause game on callback unless game is currently being restarted
@@ -51,19 +51,37 @@ class GameState():
         msg_ctrl.accel = 0 
         msg_ctrl.steering = 0
         msg_ctrl.brake = 1
-#        self.pub_ctrl.publish(msg_ctrl) #demand restart from client node
 #        rospy.sleep(10) #wait to be sure that client has restarted
+
+        n_iter = 0
         while(True): #this is needed as sometimes the client will seems to be chocking messages, which leads to the client being killed before torcs is restarted
             self.pub_ctrl.publish(msg_ctrl) #demand restart from client node
-            msg_restartNotification = rospy.wait_for_message("/torcs_ros/restart_process", Bool)
+            try: 
+                msg_restartNotification = rospy.wait_for_message("/torcs_ros/restart_process", Bool, timeout=10)
+                print(msg_restartNotification.data)
+            except:
+                #"on first"
+                msg_restartNotification = Bool()
+                if (n_iter == 0):
+                    subprocess.call('xdotool search --name "torcs-bin" key p', shell=True) #unpause game
+                    self.b_Pause = False#set flag to game being unpaused
+                    rospy.sleep(1)
+                    n_iter += 1
+                    msg_restartNotification.data = False
+                    print("trying to unpause")
+
+                else:
+                    self.b_Pause = not self.b_Pause
+                    msg_restartNotification.data = True
+                    print("message has been chocked") 
+                    #game state unknown; reidentify with: wait for sensor message timeout 5  
+                #"on second" try to restart client
             if(msg_restartNotification.data == True):
                 break
+
+
             
-#        while(True):
-##            pass
-#            msg_warn = rospy.wait_for_message("/rosout", Log)
-#            if ("Client Restart" in msg_warn.msg):
-#                break
+
         FNULL = open(os.devnull, 'w') #redirects output to not be published to console
         subprocess.call("rosnode kill /torcs_ros/torcs_ros_client_node", shell = True)#,  stdout=FNULL) #kills client node with terminal command
         
@@ -72,7 +90,20 @@ class GameState():
         #notify that game has been restarted
         msg_restart = Bool() 
         self.pub_isRestarted.publish(msg_restart)
+        
+        #ping client node to see whether it is up and running yet
+        while(True):
+            string = os.popen("rosnode ping -c 1 /torcs_ros/torcs_ros_client_node").readlines()
+            if(np.array(["reply" in line for line in string]).any()): #node is up
+                if (self.b_Pause == True):
+                    subprocess.call('xdotool search --name "torcs-bin" key p', shell=True) #unpause game
+                    self.b_Pause = False  
+                break
+            else:
+                rospy.sleep(0.1)
+     
         self.b_beingRestarted = False #unset restart mutex
+
 
 if __name__ == "__main__":
     if(len(os.popen("dpkg -l | grep xdotool").readlines()) == 0): #check whether xdotool is installed

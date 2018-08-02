@@ -29,6 +29,7 @@ class Watchdog():
         self.log_callback_time_connection = rospy.Time.now()
         self.log_callback_time_pause = rospy.Time.now()
         self.b_HasBeenLaunchedOnce = False
+        self.b_restartInProgress = False
 
         self.n_counterConnection = 0
         self.n_counterPause = 0
@@ -38,7 +39,7 @@ class Watchdog():
             
         self.sub_sensors = rospy.Subscriber(sensors_topic, TORCSSensors, callback = self.callback)
         self.sub_log = rospy.Subscriber("/rosout", Log, callback =self.log_callback)
-        
+        self.sub_restart = rospy.Subscriber("/torcs_ros/restart_process", Bool, callback=self.restart_callback)
 
     def callback(self, msg):
         self.last_callback_time = rospy.Time.now()
@@ -46,7 +47,7 @@ class Watchdog():
         self.n_counterComp = 5
         
     def log_callback(self, msg):
-        if(self.b_HasBeenLaunchedOnce): #avoid clicking before first run
+        if(self.b_HasBeenLaunchedOnce and not self.b_restartInProgress): #avoid clicking before first run
 #            if ("torcs_ros_client_node.cpp" in msg.file):
 #                pass
 #                if ("Not connected to server yet!!" in msg.msg): #theoretically it should be enough to check for this
@@ -80,7 +81,12 @@ class Watchdog():
                         self.n_counterPause = 0
 #        
                         #handle case where game is connected but 
-
+                        
+    def restart_callback(self, msg):
+        self.b_restartInProgress = msg.data #ensures no watchdog requests and notifications are sent during restart 
+        rospy.sleep(10)
+        self.b_restartInProgress = False
+        
     #the restart will only work if the game is waiting for the scr_server as it will not connect otherwise
     def is_client_alive(self):
         str_nodes = os.popen("rosnode list").readlines() #returns rosnode list as list where every line of output is one list element
