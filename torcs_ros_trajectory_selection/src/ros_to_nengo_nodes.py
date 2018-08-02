@@ -73,47 +73,60 @@ class NodeInputReward():
         self.retVec.append(self.reward) 
         self.oneHot_action[i] = 1 #reset to ensure no two actions are rewarded if NoLearning wasn't called in between
         
-        
+#A class that can be passed to a nengo node as input
+#Returns the (externally set) start time
+#This node is used to limit the learning to a certain window of time after the current simulation has started         
 class NodeInputStartTime():
     def __init__(self):
-        self.t_start = 0
+        self.t_start = 0 #start time of current simulation.run
     def __call__(self, t):
-        return self.t_start
+        return self.t_start #always return start time
     def setT(self, t):
-        self.t_start = t
-    
+        self.t_start = t #set start time (to be called before running a simulation)
+
+#A class that can be passed to a nengo node as input
+#Implements a decaying epsilon greedy exploration. Returns the index of the chosen action if exploration is desired
+#Nengo net is configured to use deterministic argmax if the returned idx value is -1
+#Otherwise the epsilon exploration of the returned idx is used
 class NodeInputEpsilon():
     def __init__(self, in_action):
-        self.epsilon_init = 0.5
-        self.epsilon = copy.copy(self.epsilon_init)
-        self.val = -1
-        self.lastVal = -1
-        self.nextVal = -1
-        self.n_action = in_action
-        self.episode = 1.0
+        self.epsilon_init = 0.5 #initial epsilon value
+        self.epsilon = copy.copy(self.epsilon_init) #current epsilon value
+        self.val = -1 #return action
+        self.lastVal = -1 #action idx used previously, needed for training
+        self.nextVal = -1 #action idx to be used next
+        self.n_action = in_action #get number of actions as input parameter
+        self.episode = 1.0 #counter used for decay, increased on every learning iteration 
         
+    #Set to deterministic behavior. Can be used to manually turn off epsilon exploration
     def DoNotExplore(self):
         self.val = -1
-    def Explore(self):
-        rand = np.random.uniform(0, 1)
-        self.lastVal = self.nextVal
-        if (rand < self.epsilon):
-            self.nextVal = np.random.randint(0, self.n_action-1)
-        else:
-            self.nextVal = -1
         
-        if (self.lastVal != -1):
+    #Called before every action selection simulation
+    #Epsilon greedy exploration
+    def Explore(self):
+        rand = np.random.uniform(0, 1) #get random number
+        self.lastVal = self.nextVal #save last used action index
+        if (rand < self.epsilon): #random behavior if random number below current epsilon value
+            self.nextVal = np.random.randint(0, self.n_action-1) #get a random adction idx within the range
+        else:
+            self.nextVal = -1 #deterministic behavior, argmax will be used in net
+        
+        if (self.lastVal != -1): #print indication of exploration to console 
             print("Exploring action: " +str(self.lastVal) + " with current th_epsilon: " +str(self.epsilon))
             
+    #Prepare value for action selection (next action needed)
     def SetActive(self):
-        self.val = self.nextVal
+        self.val = self.nextVal 
+    #Prepare value for training (last action needed)
     def SetTraining(self):
         self.val = self.lastVal
+    #Return constant value in every simulation step
     def __call__(self, t):
         return self.val
+    #Called before every training, Update decaying epsilon parameter
     def OnTraining(self):
         self.episode += 1
-#        self.epsiolon_init
         self.epsilon = np.clip(self.epsilon_init/(float(self.episode)/150), 0, 1)
 
         
@@ -129,10 +142,12 @@ class NodeOutputProber():
         self.time_val = t 
         return self.probe_vals
     
+#A class that can be passed to a nengo node as input
+#Used once training is completed in order to inhibit entire learning subnetwork
 class NodeInhibitAlLTraining():
     def __init__ (self):
-        self.b_DoInhibit = False
-    def __call__(self, t):
+        self.b_DoInhibit = False #flag whether to inhibit not
+    def __call__(self, t): #return inhibition value
         if (self.b_DoInhibit == True):
             return 1
         else:

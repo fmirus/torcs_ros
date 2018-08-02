@@ -33,7 +33,7 @@ from bzGeometricFuncs import BaseLinkToTrajectory
 
 #ROS node functionality
 class TrajectoryPublish():
-    def __init__(self, cwd, frame_topic = "/tf", action_topic="/torcs_ros/ctrl_signal_action", 
+    def __init__(self, cwd, frame_topic = "/tf", action_topic="/torcs_ros/notifications/ctrl_signal_action", 
                  selector_topic = "/torcs_ros/TrajectorySelector"):
         #### variables ####
         self.time = rospy.Time.now() #to be used as reference time when performing transformations; not working yet

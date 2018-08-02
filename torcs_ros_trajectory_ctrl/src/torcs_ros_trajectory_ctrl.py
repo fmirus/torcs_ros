@@ -74,8 +74,8 @@ class FollowTrajectory():
  
         #### publications ####
         self.pub_ctrl = rospy.Publisher(ctrl_topic, TORCSCtrl, queue_size=10) #publish control commands
-        self.pub_needTrajectory = rospy.Publisher("/torcs_ros/ctrl_signal_action", Bool, queue_size=1) #publish a control signal that indicates that a  new trajectory is needed
-        self.pub_demandRestart = rospy.Publisher("/torcs_ros/demandRestart", Bool, queue_size = 1)
+        self.pub_needTrajectory = rospy.Publisher("/torcs_ros/notifications/ctrl_signal_action", Bool, queue_size=1) #publish a control signal that indicates that a  new trajectory is needed
+        self.pub_demandRestart = rospy.Publisher("/torcs_ros/notifications/demandRestart", Bool, queue_size = 1)
 
         #### subscriptions ####
         self.sub_trajectory = rospy.Subscriber(trajectory_topic, Path, self.trajectory_callback) #subscribe to selected trajectory in world frame
@@ -208,7 +208,7 @@ class FollowTrajectory():
 ##            os.system("roslaunch torcs_ros_client torcs_ros_client_ns.xml") #relaunch client node with roslaunch command when not in namespace yet (if called manually from console)
 #            os.system("roslaunch torcs_ros_client torcs_ros_client_only.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
 ##            os.system("roslaunch torcs_ros_trajectory_ctrl torcs_ros_trajectory_ctrl.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
-            rospy.wait_for_message("/torcs_ros/isRestarted", Bool)
+            rospy.wait_for_message("/torcs_ros/notifications/isRestarted", Bool)
             rospy.wait_for_message(self.sensors_topic, TORCSSensors) #wait for a message from client node to ensure it has restarted
 
             #notify generation node that new trajectory has to be selected as game has been resarted

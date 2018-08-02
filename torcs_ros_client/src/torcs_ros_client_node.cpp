@@ -62,7 +62,7 @@ TORCSROSClient::TORCSROSClient(){
   focus_pub_ = nh_.advertise<sensor_msgs::LaserScan>("torcs_focus", 1000);
   speed_pub_ = nh_.advertise<geometry_msgs::TwistStamped>("torcs_speed", 1000);
   debug_pub_ = nh_.advertise<std_msgs::String>("udp_string", 1000);
-  restart_pub_ = nh_.advertise<std_msgs::Bool>("restart_process", 1000);
+  restart_pub_ = nh_.advertise<std_msgs::Bool>("notifications/restart_process", 1000);
 
   bool connected = false;
   while(connected == false)

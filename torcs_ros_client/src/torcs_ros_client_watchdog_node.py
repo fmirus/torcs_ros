@@ -11,7 +11,7 @@ import rospy
 import numpy as np
 import subprocess 
 
-from torcs_msgs.msg import TORCSSensors
+from torcs_msgs.msg import TORCSSensors, TORCSCtrl
 from rosgraph_msgs.msg import Log
 
 import sys
@@ -30,42 +30,27 @@ class Watchdog():
         self.log_callback_time_pause = rospy.Time.now()
         self.b_HasBeenLaunchedOnce = False
         self.b_restartInProgress = False
-
+        self.b_nengoIsRunning = False
         self.n_counterConnection = 0
         self.n_counterPause = 0
-        self.n_counterComp = 20
+        self.n_counterComp = 5
+        self.meta = 0
 
-        self.pub_demandPause = rospy.Publisher("/torcs_ros/demandPause", Bool,queue_size = 1)
+        self.pub_demandPause = rospy.Publisher("/torcs_ros/notifications/demandPause", Bool,queue_size = 1)
             
         self.sub_sensors = rospy.Subscriber(sensors_topic, TORCSSensors, callback = self.callback)
         self.sub_log = rospy.Subscriber("/rosout", Log, callback =self.log_callback)
-        self.sub_restart = rospy.Subscriber("/torcs_ros/restart_process", Bool, callback=self.restart_callback)
+        self.sub_restart = rospy.Subscriber("/torcs_ros/notifications/restart_process", Bool, callback=self.restart_callback)
+        self.sub_nengo = rospy.Subscriber("/torcs_ros/notifications/nengoIsRunning", Bool, callback=self.nengo_callback)
+        self.sub_cmd = rospy.Subscriber("/torcs_ros/ctrl_cmd", TORCSCtrl, callback=self.ctrl_callback)
 
     def callback(self, msg):
         self.last_callback_time = rospy.Time.now()
         self.b_HasBeenLaunchedOnce = True
-        self.n_counterComp = 5
+        self.n_counterComp = 2
         
     def log_callback(self, msg):
-        if(self.b_HasBeenLaunchedOnce and not self.b_restartInProgress): #avoid clicking before first run
-#            if ("torcs_ros_client_node.cpp" in msg.file):
-#                pass
-#                if ("Not connected to server yet!!" in msg.msg): #theoretically it should be enough to check for this
-#                    dt = rospy.Time.now() - self.log_callback_time_connection 
-#                    self.log_callback_time_connection = rospy.Time.now()
-#                    if(dt.secs < 3):
-#                        self.n_counterConnection += 1
-#                        if(self.n_counterConnection >= self.n_counterComp):
-#                            print("\033[96mWatchdog is restarting TORCS via the GUI and restarting client node \033[0m")
-#                            os.system("rosnode kill /torcs_ros/trajectory_ctrl")
-#                            rospy.sleep(1) #give the system enough time to have killed of node
-#                            RestartTORCSRace()
-##                            os.system("roslaunch torcs_ros_trajectory_ctrl torcs_ros_trajectory_ctrl.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
-##                            rospy.sleep(1)
-#                            os.system("roslaunch torcs_ros_client torcs_ros_client_only.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
-#                            self.n_counterConnection = 0
-#                    else:
-#                        self.n_counterConnection = 0
+        if(self.b_HasBeenLaunchedOnce and not self.b_restartInProgress and not self.b_nengoIsRunning): #avoid clicking before first run
                 if("Server did not respond in 1 second" in msg.msg):
                     dt = rospy.Time.now() - self.log_callback_time_pause 
                     self.log_callback_time_pause = rospy.Time.now()
@@ -83,9 +68,28 @@ class Watchdog():
                         #handle case where game is connected but 
                         
     def restart_callback(self, msg):
-        self.b_restartInProgress = msg.data #ensures no watchdog requests and notifications are sent during restart 
-        rospy.sleep(10)
-        self.b_restartInProgress = False
+        if(msg.data == True):
+            if(self.meta == 1):
+                self.b_restartInProgress = True
+        elif(self.b_restartInProgress == True and msg.data == False):
+            self.meta = 0
+            self.b_restartInProgress = False                
+#        self.b_restartInProgress = msg.data #ensures no watchdog requests and notifications are sent during restart 
+        
+#        while(True):
+#            string = os.popen("rosnode ping -c 1 /torcs_ros/torcs_ros_client_node").readlines()
+#            if(np.array(["reply" in line for line in string]).any()): #node is up
+#                break
+#            else:
+#                rospy.sleep(0.1)
+#        self.b_restartInProgress = False
+        
+    def nengo_callback(self, msg):
+        self.b_nengoIsRunning = msg.data
+        
+    def ctrl_callback(self, msg):
+        if(msg.meta == 1):
+            self.meta = 1
         
     #the restart will only work if the game is waiting for the scr_server as it will not connect otherwise
     def is_client_alive(self):
