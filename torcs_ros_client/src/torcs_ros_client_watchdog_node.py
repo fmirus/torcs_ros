@@ -50,16 +50,20 @@ class Watchdog():
         self.n_counterComp = 2
         
     def log_callback(self, msg):
-        if(self.b_HasBeenLaunchedOnce and not self.b_restartInProgress and not self.b_nengoIsRunning): #avoid clicking before first run
+        if(self.b_HasBeenLaunchedOnce and not self.b_nengoIsRunning): #avoid clicking before first run
                 if("Server did not respond in 1 second" in msg.msg):
                     dt = rospy.Time.now() - self.log_callback_time_pause 
                     self.log_callback_time_pause = rospy.Time.now()
                     if(dt.secs < 3):
                         self.n_counterPause += 1
-                        if(self.n_counterPause >= self.n_counterComp):
+                        if(self.n_counterPause >= self.n_counterComp and not self.b_restartInProgress):
                             print("\033[96mWatchdog is wanting to unpause TORCS \033[0m")
     #                        rospy.sleep(5) #give enough time to manually stop this process
 #                            subprocess.call('xdotool search --name "torcs-bin" key p', shell=True) 
+                            self.pub_demandPause.publish(Bool())
+                            self.n_counterPause = 0
+                        elif(self.n_counterPause >= 30):
+                            print("\033[96mWatchdog is wanting to unpause TORCS \033[0m")
                             self.pub_demandPause.publish(Bool())
                             self.n_counterPause = 0
                     else:

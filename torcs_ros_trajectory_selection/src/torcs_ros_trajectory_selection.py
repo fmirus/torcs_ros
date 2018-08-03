@@ -42,8 +42,8 @@ class TrajectorySelector():
         #### various parameters and variables ####
         #choose index of scanners to use
         #angle min/max: +-1.57; increment 0.1653; instantenous, range: 200 m
-        self.a_selectScanTrack = [3, 6, 11, -7, -6]
-        self.param_rangeNormalize = 100 #value used for normalization. all values above will be considered as 1
+        self.a_selectScanTrack = [3, 6, 11, -7, -4]
+        self.param_rangeNormalize = 200 #value used for normalization. all values above will be considered as 1
         self.param_f_maxExpectedSpeed = 37.0 #[km/h], set higher than 34 deliberately to scale reward a bit
         [self.param_f_longitudinalDist, _, self.param_n_action] = readTrajectoryParams(cwd)
         self.param_n_action = calcTrajectoryAmount(self.param_n_action) #get how many trajectories are actually used
