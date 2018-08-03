@@ -113,8 +113,9 @@ class NodeInputEpsilon():
         else:
             self.nextVal = -1 #deterministic behavior, argmax will be used in net
         
-        if (self.lastVal != -1): #print indication of exploration to console 
-            print("Exploring action: " +str(self.lastVal) + " with current th_epsilon: " +str(self.epsilon))
+#        if (self.lastVal != -1): #print indication of exploration to console 
+        if (self.nextVal != -1): #print indication of exploration to console 
+            print("Exploring action: " +str(self.nextVal) + " with current th_epsilon: " +str(self.epsilon))
 
     #Prepare value for action selection (next action needed)
     def SetActive(self):
@@ -124,7 +125,7 @@ class NodeInputEpsilon():
         self.val = self.lastVal
     #Return constant value in every simulation step
     def __call__(self, t):
-        return self.val
+        return self.nextVal #XXX was just vl
     #Called before every training, Update decaying epsilon parameter
     def OnTraining(self):
         self.episode += 1

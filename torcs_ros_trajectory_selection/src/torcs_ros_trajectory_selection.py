@@ -120,12 +120,8 @@ class TrajectorySelector():
                 self.pub_nengoRunning.publish(self.msg_nengo.data) #inform that a calculation is in progress and game should remain paused
 
                 self.calculateReward() #calculate the last action's reward
-                
-                ###select previously run output and resimulate in off-time to calculate next output
-                msg_sel = Int8()
-                msg_sel.data = self.idx_next_action
+            
 #                msg_sel.data = 0 #used in debug cases
-                self.pub_trajectorySelection.publish(msg_sel) #publish trajectory calculated in the last step
                 #set new actions start values used for reward calculation in next step
                 self.f_lapTimeStart = self.f_lapTimeCurrent
                 self.f_distStart = self.f_distCurrent
@@ -145,6 +141,12 @@ class TrajectorySelector():
                     self.idx_next_action = np.argmax(np.array(self.output_prober.probe_vals[:-1])) #get next action from output
                 else:
                     self.idx_next_action = self.epsilon_inputer.nextVal
+                    
+                ###select previously run output and resimulate in off-time to calculate next output
+                msg_sel = Int8()
+                msg_sel.data = self.idx_next_action
+                self.pub_trajectorySelection.publish(msg_sel) #publish trajectory calculated in the last step
+
                 self.pub_demandPause.publish(self.msg_pause) #demand game unpause
                 self.msg_nengo.data = False
                 self.pub_nengoRunning.publish(self.msg_nengo.data) #notify that nengo is not calculating anymore
@@ -240,8 +242,8 @@ class TrajectorySelector():
     
     def trainOnReward(self):
         if not(np.isnan(self.reward)): #no need to run if the reward does not count
-            print("Training action \033[96m" + str(self.idx_last_action) + "\033[0m with reward: \033[96m" +str(self.reward) + "\033[0m") #console notifcation
-            self.reward_inputer.RewardAction(self.idx_last_action, self.reward) #input reward to nengo node
+            print("Training action \033[96m" + str(self.idx_next_action) + "\033[0m with reward: \033[96m" +str(self.reward) + "\033[0m") #console notifcation
+            self.reward_inputer.RewardAction(self.idx_next_action, self.reward) #input reward to nengo node
             self.epsilon_inputer.OnTraining() #prepare for training
             self.epsilon_inputer.SetTraining() #update epsilon values
             self.sim.run(0.5,  progress_bar = False) #train

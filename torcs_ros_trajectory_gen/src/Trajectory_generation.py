@@ -38,12 +38,7 @@ def EgoTrajectories(f_lateralDist, f_longitudinalDist, n_amount, b_verbose):
         ynew1 = [f(x) if abs(f(x))<= 1 else np.sign(f(x))*1 for x in xnew]
 #        plt.plot(f(xnew), xnew)
         Traj_Cubic.append(f(xnew))
-    if b_verbose is True:
-        plt.title('EgoTrajectories - Cubic Clamped')
-        plt.xlabel('[m]')
-        plt.ylabel('[m]')
-        plt.show()
-        
+
     for s1 in np.linspace(-float(f_lateralDist)/2, float(f_lateralDist)/2, n_amount):
         x = [0, float(f_longitudinalDist)/2+float(f_longitudinalDist)/10, f_longitudinalDist]
         y = [0, s1/2, s1]
@@ -53,21 +48,35 @@ def EgoTrajectories(f_lateralDist, f_longitudinalDist, n_amount, b_verbose):
         Traj_Quad.append(f(xnew))
     
     if b_verbose is True:
-        plt.title('EgoTrajectories - Quadratic')
-        plt.xlabel('[m]')
-        plt.ylabel('[m]')
-        plt.show()
     
-        [plt.plot(trajectory, xnew, c='r', alpha=0.8) for trajectory in Traj_Cubic]
-        plt.plot(Traj_Cubic[0], xnew, c='r', alpha=0.8, label = 'cubic clamped')
-        [plt.plot(trajectory, xnew, c='b', alpha=0.5) for trajectory in Traj_Quad]
-        plt.plot(Traj_Quad[0], xnew, c='b', alpha=0.8, label = 'quadratic')
-        plt.plot(len(xnew)*[0], xnew, c='g', label='linear')
+#        [plt.plot(trajectory, xnew, c='r', alpha=0.8) for trajectory in Traj_Cubic]
+#
+#        plt.plot(Traj_Cubic[0], xnew, c='r', alpha=0.8, label = 'cubic clamped')
+#        [plt.plot(trajectory, xnew, c='b', alpha=0.5) for trajectory in Traj_Quad]
+#        plt.plot(Traj_Quad[0], xnew, c='b', alpha=0.8, label = 'quadratic')
+#        plt.plot(len(xnew)*[0], xnew, c='g', label='linear')
+#        plt.legend(loc='best')
+#        plt.title('EgoTrajectories - All')
+#        plt.xlabel('[m]')
+#        plt.ylabel('[m]')
+#        plt.show()
+
+        n_counter = 1
+        plt.plot(len(xnew)*[0], xnew, c='g', label='0')
+        for trajectory in Traj_Cubic:
+            plt.plot(trajectory, xnew, label=str(n_counter), linestyle='--')
+            n_counter += 1
+        for trajectory in Traj_Quad:
+            plt.plot(trajectory, xnew, label=str(n_counter))
+            n_counter += 1
+
         plt.legend(loc='best')
         plt.title('EgoTrajectories - All')
         plt.xlabel('[m]')
         plt.ylabel('[m]')
+        plt.gca().invert_xaxis()
         plt.show()
+
 
 #    debug = np.ndarray((1, len(xnew)))
 #    a = np.linspace(0, 7.15, len(xnew))
@@ -103,6 +112,6 @@ def ComputeHeadingsInRad(xvals, yvals):
 #EgoTrajectories()
 #CompareSecondOrderPolynomials()
 #CompareThirdOrderPolynomials()
-
+#
 #f_lateralDist, f_longitudinalDist, n_amount, b_verbose = 10, 25, 6, True
 #EgoTrajectories(f_lateralDist, f_longitudinalDist, n_amount, b_verbose)
