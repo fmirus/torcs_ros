@@ -105,11 +105,12 @@ class GameState():
                 else:
                     try: #handle case were self.b_Pause was set wrong
                         rospy.wait_for_message("/torcs_ros/sensors_state", TORCSSensors, timeout=5) #see whether sensor messages are published, meaning game is unpaused
+                        break
                     except: #on timeout: unpause game
                         subprocess.call('xdotool search --name "torcs-bin" key p', shell=True) #unpause game
                         self.b_Pause = False  
                         print("Unpausing as no message received")
-                break
+                        break
             else:
                 rospy.sleep(0.1) #limit rate
      

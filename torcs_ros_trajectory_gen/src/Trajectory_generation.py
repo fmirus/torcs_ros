@@ -93,3 +93,6 @@ def ComputeHeadingsInRad(xvals, yvals):
 #EgoTrajectories()
 #CompareSecondOrderPolynomials()
 #CompareThirdOrderPolynomials()
+
+#f_lateralDist, f_longitudinalDist, n_amount, b_verbose = 10, 25, 4, True
+#EgoTrajectories(f_lateralDist, f_longitudinalDist, n_amount, b_verbose)

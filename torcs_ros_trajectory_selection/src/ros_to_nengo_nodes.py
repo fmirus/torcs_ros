@@ -92,6 +92,7 @@ class NodeInputEpsilon():
     def __init__(self, in_action):
         self.epsilon_init = 0.5 #initial epsilon value
         self.epsilon = copy.copy(self.epsilon_init) #current epsilon value
+        self.epsilon_temp = 0
         self.val = -1 #return action
         self.lastVal = -1 #action idx used previously, needed for training
         self.nextVal = -1 #action idx to be used next
@@ -106,7 +107,7 @@ class NodeInputEpsilon():
     #Epsilon greedy exploration
     def Explore(self):
         rand = np.random.uniform(0, 1) #get random number
-        self.lastVal = self.nextVal #save last used action index
+        self.lastVal = copy.copy(self.nextVal) #save last used action index
         if (rand < self.epsilon): #random behavior if random number below current epsilon value
             self.nextVal = np.random.randint(0, self.n_action-1) #get a random adction idx within the range
         else:
@@ -128,7 +129,13 @@ class NodeInputEpsilon():
     def OnTraining(self):
         self.episode += 1
         self.epsilon = np.clip(self.epsilon_init/(float(self.episode)/150), 0, 1)
-
+    
+    def SetUnsetDeterministic(self):
+        temp = copy.copy(self.epsilon_temp)
+        self.epsilon_temp = copy.copy(self.epsilon_init)
+        self.epsilon_init = temp
+        
+        
         
 
 #A class that can be passed to a nengo node as an output probe

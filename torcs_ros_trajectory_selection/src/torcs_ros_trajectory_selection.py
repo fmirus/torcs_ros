@@ -67,6 +67,7 @@ class TrajectorySelector():
         [self.a_scanTrack.append(-1) for idx in self.a_selectScanTrack]
         self.b_handshake = False
         self.f_trackPos = 0
+        self.f_trackPosStart = 0
         self.b_hasBeenTrained = False
 
         
@@ -103,7 +104,7 @@ class TrajectorySelector():
         self.sub_ctrlCmd = rospy.Subscriber(ctrl_topic, TORCSCtrl, self.ctrl_callback) #check for meta command
         self.sub_restart = rospy.Subscriber("/torcs_ros/notifications/restart_process", Bool, self.restart_callback) #see whether client is restarting torcs
         self.sub_save = rospy.Subscriber("/torcs_ros/notifications/save", Bool, self.save_callback) #check for manual save nengo command
-        
+        self.sub_deterministic = rospy.Subscriber("torcs_ros/notifications/deterministic", Bool, self.deterministic_callback) #manually sets epsilon value to 0 to achieve deterministic behavior
         
         
     def scan_callback(self, msg_scan):
@@ -129,17 +130,21 @@ class TrajectorySelector():
                 self.f_lapTimeStart = self.f_lapTimeCurrent
                 self.f_distStart = self.f_distCurrent
                 self.f_speedXStart = self.f_speedXCurrent
+                self.f_trackPosStart = self.f_trackPos
 
                 self.state_inputer.setVals(self.a_scanTrack) #state values only changed before action selection simulation
                 self.epsilon_inputer.Explore() #prepare for action selection, performs an epsilon greedy algorithm
                 self.epsilon_inputer.SetActive() #ensure that no training is to happen
                 self.time_inputer.setT(self.output_prober.time_val) #input simulation starting time to node
-                self.sim.run(0.5, progress_bar = False) #run simulation for x 
+                self.idx_last_action = self.idx_next_action #save last used action for reward training
+                if (self.epsilon_inputer.nextVal == -1):
+                    self.sim.run(0.5, progress_bar = False) #run simulation for x 
+                    self.idx_next_action = np.argmax(np.array(self.output_prober.probe_vals[:-1])) #get next action from output
+                else:
+                    self.idx_next_action = self.epsilon_inputer.nextVal
                 self.pub_demandPause.publish(self.msg_pause) #demand game unpause
                 self.msg_nengo.data = False
                 self.pub_nengoRunning.publish(self.msg_nengo.data) #notify that nengo is not calculating anymore
-                self.idx_last_action = self.idx_next_action #save last used action for reward training
-                self.idx_next_action = np.argmax(np.array(self.output_prober.probe_vals[:-1])) #get next action from output
                 self.b_doSimulateOnce = False #don't simualte again until this trajectory has been published (which means that the action signal will turn to False)
                 
         else:
@@ -163,7 +168,6 @@ class TrajectorySelector():
             self.f_lapTimeStart = -(self.f_lapTimePrevious - self.f_lapTimeStart)
         if(self.f_distCurrent*10 < self.f_distStart): #*10 ensures condition to only hold at lap change 
             self.f_distStart = -(self.f_distPrevious - self.f_distStart)
-            print("Crossing start line")
             
         
     def speed_callback(self, msg_speed):
@@ -195,6 +199,9 @@ class TrajectorySelector():
     def save_callback(self, msg_save):
         self.saveNengoParams() #saves nengo parameters when something is published to this topic
         
+    def deterministic_callback(self, msg_det):    
+        self.epsilon_inputer.SetUnsetDeterministic()
+    
     #calculate the lowest amount of time needed at the expected speed to traverse the longitudinal distance if the road were to be straight
     #this will then be used to calculate the reward
     #higher values can be achieved in curves, but it is not absoulutely necessary to limit this value to one
@@ -211,7 +218,7 @@ class TrajectorySelector():
             f_timeNeeded = self.f_lapTimeCurrent - self.f_lapTimeStart #can be neglected if we 
             self.reward = (f_distTravelled/self.param_f_longitudinalDist) / (f_timeNeeded/self.param_f_minTime) #maybe pow 2
             self.reward *= self.reward #scale reward for more distinction between all trajectories
-            self.reward += (1-abs(self.f_trackPos)) # + (1-abs(self.f_angle)/2) or delta trackpos and delta angle (only in associative) 
+            self.reward += (1-abs(self.f_trackPos))*2-(1-abs(self.f_trackPosStart)) # + (1-abs(self.f_angle)/2) or delta trackpos and delta angle (only in associative) 
         self.checkRewardValidity() #ensure no weird rewards have been calculated
         self.trainOnReward() #traing
         
