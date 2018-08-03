@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<launch>
+  <node pkg="torcs_ros_trajectory_selection" type="torcs_ros_trajectory_selection.py" name="trajectory_selection" output="screen">
+  </node>
+</launch>
+

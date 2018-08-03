@@ -115,7 +115,7 @@ class NodeInputEpsilon():
         
         if (self.lastVal != -1): #print indication of exploration to console 
             print("Exploring action: " +str(self.lastVal) + " with current th_epsilon: " +str(self.epsilon))
-            
+
     #Prepare value for action selection (next action needed)
     def SetActive(self):
         self.val = self.nextVal 
@@ -128,13 +128,17 @@ class NodeInputEpsilon():
     #Called before every training, Update decaying epsilon parameter
     def OnTraining(self):
         self.episode += 1
-        self.epsilon = np.clip(self.epsilon_init/(float(self.episode)/150), 0, 1)
+        self.epsilon = np.clip(self.epsilon_init/(float(self.episode)/150), 0, 1) #/(100*24); epsilon init = 0.1
     
     def SetUnsetDeterministic(self):
         temp = copy.copy(self.epsilon_temp)
         self.epsilon_temp = copy.copy(self.epsilon_init)
         self.epsilon_init = temp
         
+    def ForceRandom(self):
+        if (self.nextVal == -1):
+            self.nextVal = np.random.randint(0, self.n_action-1) #get a random adction idx within the range
+
         
         
 

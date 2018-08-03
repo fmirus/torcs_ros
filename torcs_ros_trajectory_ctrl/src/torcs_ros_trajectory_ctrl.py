@@ -181,14 +181,14 @@ class FollowTrajectory():
 #            if (dt > 5): #do not restart if race has just started
             if(self.sen_laptime > 5):
                 b_Restart = True 
-                print("\033[96mClient node is being restarted as vehicle was off track \033[97m") 
+                print("\033[96mClient node is being restarted as vehicle was off track \033[0m") 
 
         elif (self.sen_speedX < 3): #if low speed, car is probably stuck
 #            dt = rospy.Time.now().secs - self.race_start_time.secs #calculate whether race has just started
             if(self.sen_laptime > 15):
 #            if (dt > 15): #do not restart if race has just started
                 b_Restart = True 
-                print("\033[96mClient node is being restarted as vehicle seemed to be stuck \033[97m") 
+                print("\033[96mClient node is being restarted as vehicle seemed to be stuck \033[0m") 
 
         if b_Restart == True:
             self.pub_demandRestart.publish(self.msg_restart)

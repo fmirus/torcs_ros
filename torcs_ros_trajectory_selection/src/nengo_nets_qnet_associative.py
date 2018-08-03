@@ -65,7 +65,7 @@ def qnet_associative(b_Direct, signal, i_reward, i_time, i_epsilon, i_output, n_
         nengo.Connection(net.stateIn, net.QEnsemble_In)
         #initalize Q population with fixed low reward for all (alternative: low but random )
         net.LearningConnections = [nengo.Connection(net.QEnsemble_In, net.QEnsembleArray_Out.input[n], function=lambda x: np.random.uniform(0, 0.1)
-        , label='Learning Connection Action' + str(n), learning_rule_type=nengo.PES(learning_rate=0.001), synapse=tau_mid) for n in range(n_action)]
+        , label='Learning Connection Action' + str(n), learning_rule_type=nengo.PES(learning_rate=1e-6), synapse=tau_mid) for n in range(n_action)]
     
 
         [nengo.Connection(net.QEnsembleArray_Out.output[n], net.ActionSelection[n], label='Q utility to action'+str(n),

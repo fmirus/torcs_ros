@@ -137,6 +137,9 @@ class TrajectorySelector():
                 self.epsilon_inputer.SetActive() #ensure that no training is to happen
                 self.time_inputer.setT(self.output_prober.time_val) #input simulation starting time to node
                 self.idx_last_action = self.idx_next_action #save last used action for reward training
+                #only simulate when there is no exploration to be done (epsilon nextVal == -1)
+                #while the network is capable of passing this argument and choosing the q-value associated with the epsilon exploration action
+                #this yields in unncessary simulation time and will be jumped because of it (thought to decrease overall needed time in epsilon decay learning)
                 if (self.epsilon_inputer.nextVal == -1):
                     self.sim.run(0.5, progress_bar = False) #run simulation for x 
                     self.idx_next_action = np.argmax(np.array(self.output_prober.probe_vals[:-1])) #get next action from output
@@ -190,9 +193,13 @@ class TrajectorySelector():
                 self.msg_nengo.data = True
                 self.pub_nengoRunning.publish(self.msg_nengo.data) #notify that nengo is calculating
                 self.trainOnReward() #train network with negative reward
+                #force first action to always be random to avoid having identical starting situations repeatedly
+                self.epsilon_inputer.ForceRandom() 
+                self.idx_next_action = self.epsilon_inputer.nextVal
                 self.msg_nengo.data = False
                 self.pub_nengoRunning.publish(self.msg_nengo.data) #notify that nengo is not calculating anymore
                 self.pub_demandPause.publish(self.msg_pause) #demand game unpause
+                
         else:
             self.b_hasBeenTrained = False #game has been restart, flag can be reset therefore
         

@@ -80,6 +80,16 @@ def EgoTrajectories(f_lateralDist, f_longitudinalDist, n_amount, b_verbose):
 
     
 def ComputeHeadingsInRad(xvals, yvals):
+    '''
+    Compute orientation from vectors between two subsequent waypoints
+    
+    Arguments:
+    xvals -- euclidean coordinates X
+    yvals -- euclidean coordinates Y
+    
+    Returns:
+    headings -- list of orientation angles in radians
+    '''
     headings = []
     y_axis = np.array([0, -1])
     for n in range(0, len(xvals)-1): #manually set last heading to same as before
@@ -94,5 +104,5 @@ def ComputeHeadingsInRad(xvals, yvals):
 #CompareSecondOrderPolynomials()
 #CompareThirdOrderPolynomials()
 
-#f_lateralDist, f_longitudinalDist, n_amount, b_verbose = 10, 25, 4, True
+#f_lateralDist, f_longitudinalDist, n_amount, b_verbose = 10, 25, 6, True
 #EgoTrajectories(f_lateralDist, f_longitudinalDist, n_amount, b_verbose)

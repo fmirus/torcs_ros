@@ -86,9 +86,9 @@ class GameState():
                 break #break loop as the meta command has been received
 
 
-        subprocess.call("rosnode kill /torcs_ros/torcs_ros_client_node", shell = True)#,  stdout=self.FNULL) #kills client node with terminal command
+        subprocess.call("rosnode kill /torcs_ros/torcs_ros_client_node", shell = True,  stdout=self.FNULL) #kills client node with terminal command
         
-        subprocess.Popen("roslaunch torcs_ros_client torcs_ros_client_only.xml", shell=True)#, stdout=self.FNULL, stderr=subprocess.STDOUT) #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
+        subprocess.Popen("roslaunch torcs_ros_client torcs_ros_client_only.xml", shell=True, stdout=self.FNULL, stderr=subprocess.STDOUT) #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
         #notify that game has been restarted
         msg_restart = Bool() 
         self.pub_isRestarted.publish(msg_restart)
@@ -96,12 +96,13 @@ class GameState():
         #unpause game after restart if it happens to be paused
         #ping client node to see whether it is up and running yet
         while(True):
-            string = os.popen("rosnode ping -c 1 /torcs_ros/torcs_ros_client_node").readlines() #ping client and return string to variable 
-            if(np.array(["reply" in line for line in string]).any()): #node is up if "reply" is in any of the returnee lines
+#            string = os.popen("rosnode ping -c 1 /torcs_ros/torcs_ros_client_node &> /dev/null").readlines() #ping client and return string to variable 
+#            if(np.array(["reply" in line for line in string]).any()): #node is up if "reply" is in any of the returnee lines
+            string = subprocess.check_output("rosnode ping -c 1 /torcs_ros/torcs_ros_client_node", shell=True, stderr=subprocess.STDOUT)
+            if ("reply" in string):
                 if (self.b_Pause == True): #check current pause state and unpause game if it is paused
                     subprocess.call('xdotool search --name "torcs-bin" key p', shell=True) #unpause game
                     self.b_Pause = False  
-                    print("Unpausing due to pause state")
                 else:
                     try: #handle case were self.b_Pause was set wrong
                         rospy.wait_for_message("/torcs_ros/sensors_state", TORCSSensors, timeout=5) #see whether sensor messages are published, meaning game is unpaused
@@ -109,7 +110,6 @@ class GameState():
                     except: #on timeout: unpause game
                         subprocess.call('xdotool search --name "torcs-bin" key p', shell=True) #unpause game
                         self.b_Pause = False  
-                        print("Unpausing as no message received")
                         break
             else:
                 rospy.sleep(0.1) #limit rate

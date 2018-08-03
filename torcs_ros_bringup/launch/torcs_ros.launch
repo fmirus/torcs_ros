@@ -18,6 +18,9 @@
     <!-- start torcs trajectory generation -->
     <include file="$(find torcs_ros_trajectory_gen)/launch/torcs_ros_trajectory_gen.xml"/>
 
+    <!-- start torcs trajectory selection and nengo network -->
+    <include file="$(find torcs_ros_trajectory_selection)/launch/torcs_ros_trajectory_selection.xml"/>
+
     <!-- start torcs ros driver -->
     <include file="$(find torcs_ros_drive_ctrl)/launch/torcs_ros_drive_ctrl.xml"  if="$(arg driver)"/>
 
