@@ -12,18 +12,18 @@ import numpy as np
 #A class that can be passed to a nengo node as input
 #It subscribes to the scan topic in order to create the nengo input
 class NodeInputScan():
-    def __init__(self, length, scan_topic = "/torcs_ros/scan_track"):
+    def __init__(self, i_aScantrack,  scan_topic = "/torcs_ros/scan_track"):
          #### various parameters and variables ####
         #choose index of scanners to use
         #angle min/max: +-1.57; increment 0.1653; instantenous; range: 200 m
 
-        self.a_selectScanTrack = [3, 6, 11, -6, -3]
+        self.a_selectScanTrack = i_aScantrack
         self.param_rangeNormalize = 200 #value used for normalization. all values above will be considered as 1   
   
         #### subscription parameters ####      
         self.a_scanTrack = []
 #        [self.a_scanTrack.append(-1) for idx in self.a_selectScanTrack]
-        [self.a_scanTrack.append(-1) for idx in range(length)]
+        [self.a_scanTrack.append(-1) for idx in range(len(self.a_selectScanTrack))]
 
         
     #Call function needed for nengo, called within each simulation step 
@@ -89,8 +89,8 @@ class NodeInputStartTime():
 #Nengo net is configured to use deterministic argmax if the returned idx value is -1
 #Otherwise the epsilon exploration of the returned idx is used
 class NodeInputEpsilon():
-    def __init__(self, in_action):
-        self.epsilon_init = 0.5 #initial epsilon value
+    def __init__(self, in_action, i_epsilon_init=0.5, i_decay=250):
+        self.epsilon_init = i_epsilon_init #initial epsilon value
         self.epsilon = copy.copy(self.epsilon_init) #current epsilon value
         self.epsilon_temp = 0
         self.val = -1 #return action
@@ -98,6 +98,7 @@ class NodeInputEpsilon():
         self.nextVal = -1 #action idx to be used next
         self.n_action = in_action #get number of actions as input parameter
         self.episode = 1.0 #counter used for decay, increased on every learning iteration 
+        self.decay = i_decay
         
     #Set to deterministic behavior. Can be used to manually turn off epsilon exploration
     def DoNotExplore(self):
@@ -129,7 +130,7 @@ class NodeInputEpsilon():
     #Called before every training, Update decaying epsilon parameter
     def OnTraining(self):
         self.episode += 1
-        self.epsilon = np.clip(self.epsilon_init/(float(self.episode)/150), 0, 1) #/(100*24); epsilon init = 0.1
+        self.epsilon = np.clip(self.epsilon_init/(float(self.episode)/(self.decay)), 0, 1) #/(150); epsilon init = 0.1
     
     def SetUnsetDeterministic(self):
         temp = copy.copy(self.epsilon_temp)

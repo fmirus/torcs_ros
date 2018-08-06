@@ -26,3 +26,10 @@ def readVisualize(src_path):
     with open(src_path, 'r') as ymlfile:
         params = yaml.load(ymlfile)
     	return params['b_visualizeAll']
+    
+
+def readNengoHyperparams(src_path):
+    src_path += "/torcs_ros_trajectory_selection/include/torcs_ros_trajectory_selection/simulation_params.yaml"
+    with open(src_path, 'r') as ymlfile:
+        params = yaml.load(ymlfile)
+    return [params['f_epsilon_init'], params['f_decay_factor'], params['f_learning_rate'], params['a_scanTrack']]

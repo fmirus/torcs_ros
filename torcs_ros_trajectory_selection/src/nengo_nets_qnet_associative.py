@@ -9,115 +9,56 @@ Created on Thu Jul 26 11:02:28 2018
 import nengo
 import numpy as np
 import matplotlib.pyplot as plt
+from nengo_nets_subnetworks import create_learning_net, connect_to_learning_net, create_action_selection_net, create_error_net_associative
 
 
 import nengo_dl
 
 
-def qnet_associative(b_Direct, signal, i_reward, i_time, i_epsilon, i_output, n_action, label=''):
-    param_neuron = nengo.neurons.LIF()
-    if b_Direct == True:
-        param_neuron = nengo.neurons.Direct()
+def qnet_associative(b_Direct, signal, i_reward, i_time, i_epsilon, i_inhibit, i_output, n_action, f_learningRate=0.001 ,label=''):
+        param_neuron = nengo.neurons.LIF() #default neuron is leaky integrate and fire
+        if b_Direct == True: #set output to direct //depreceated since learning has been added
+            param_neuron = nengo.neurons.Direct()
+                    
+        #time constant definitions
+        tau_mid = 0.005 
+        tau_long = 0.01
         
-    n_dim = len(signal)
-    epsilon = 0.25
-    
-    
-#    tau_short = 0.005
-    tau_mid = 0.005
-    tau_long = 0.01
-    
-    with nengo.Network(label=label) as net: 
-        #action selection with decaying epsilon exploration
-        def func_epsilonMax(t, x):
-#            if x[-1] >= epsilon/(t/1000): 
-            if x[-1] < 0: #mark for 
-                idx = np.argmax(x[:-1])
-            else: #explore
-                idx = int(round(x[-1]))
-#                idx = np.random.randint(0, n_action)
-#                print(idx)
-            retVec = np.zeros(n_action)
-            retVec[idx] = 1 
-            retVec = retVec.tolist()
-            retVec.append(x[idx]) #returns Q-value associated to chosen action
-            return retVec
-        
-        def func_afterT(t, x):
-            #x[-1] is start time
-            if (t > x[-1]+0.4 and t < x[-1]+0.5): #limits learning to window after 
-                return x[:-1]
-            else:
-                return (len(x)-1)*[0]
+        #create action selection net (state---->encoding---learnin_rule--->Q-values--->epsilon-greedy_argmax-->selected_action)
+        net = create_action_selection_net(b_Direct, signal, i_reward, i_time, i_epsilon, i_inhibit, i_output, n_action, tau_mid, tau_long,
+                                          f_learningRate,label='')
+        with net: 
+            
+            #create error calculation net for associative learning (Q-values ----> Error calculation )
+            #                                                       Reward   ------^
+            net = create_error_net_associative(net, i_reward, n_action, param_neuron, tau_mid, tau_long)
+            #create learning net (for associative learning)                             (Error ----> Delay ----> Only learn in Time Window ---x learning_rule)
+            #                                               One hot encoding ...inhibit...^                                               
+            net = create_learning_net(net, i_time, i_inhibit, n_action, tau_mid, tau_long);
 
-        net.stateIn = nengo.Node(output=signal, size_in=None, size_out=n_dim)
-        net.eGreedyIn = nengo.Node(output=i_epsilon, label='epsilon greedy input')
-        
-        #intermediate ensemble needed as decoders of this are what are learned
-        #can be ensemble array or ensemble dependent on whether you want to imply the correlation between the signals
-        #which should be given for the rangefinders
-        net.QEnsemble_In = nengo.Ensemble(n_neurons = 100, dimensions = n_dim, neuron_type=param_neuron, label='input encoding') 
-        
-        net.QEnsembleArray_Out = nengo.networks.EnsembleArray(n_neurons = 100, n_ensembles=n_action, ens_dimensions=1, 
-                                                                    label='Q Values',neuron_type=param_neuron) #one ensemble for each action
-        #last value is outputted Q-value, every other output is one-hot encoded selected action with action idx
-        net.ActionSelection = nengo.Node(output=func_epsilonMax, size_in=n_action+1, size_out=n_action+1, label='Action selection and exploration') 
-        nengo.Connection(net.stateIn, net.QEnsemble_In)
-        #initalize Q population with fixed low reward for all (alternative: low but random )
-        net.LearningConnections = [nengo.Connection(net.QEnsemble_In, net.QEnsembleArray_Out.input[n], function=lambda x: np.random.uniform(0, 0.1)
-        , label='Learning Connection Action' + str(n), learning_rule_type=nengo.PES(learning_rate=1e-6), synapse=tau_mid) for n in range(n_action)]
-    
-
-        [nengo.Connection(net.QEnsembleArray_Out.output[n], net.ActionSelection[n], label='Q utility to action'+str(n),
-                          synapse=tau_long) for n in range(n_action)]
-        nengo.Connection(net.eGreedyIn, net.ActionSelection[-1])
-        
-        net.Output = nengo.Node(output=i_output, size_in=n_action+1)#, size_out=None)
-        nengo.Connection(net.ActionSelection, net.Output)
-        
-        
-        net.Reward = nengo.Node(output=i_reward, size_in=None, size_out=n_action+1)
-        net.Error = nengo.networks.EnsembleArray(n_neurons = 50, n_ensembles= n_action, ens_dimensions=1, label='Error calculation',
-                                                 neuron_type=param_neuron)
-        
-        
-        [nengo.Connection(net.Reward[-1], net.Error.input[n], transform=-1) for n in range(n_action)] #connect reward to each error ensemble
-        [nengo.Connection(net.QEnsembleArray_Out.output[n], net.Error.input[n], transform=1) for n in range(n_action)]
-        
-        net.Delay = nengo.networks.EnsembleArray(n_neurons = 50, n_ensembles=n_action, ens_dimensions=1, label='Delayed and inhibited error')
-        
-        nengo.Connection(net.Error.output, net.Delay.input, synapse = tau_long)
-        
-        [nengo.Connection(net.Reward[n], net.Delay.ensembles[n].neurons, 
-                          transform=-5*np.ones((net.Delay.ensembles[n].n_neurons, 1))) for n in range(n_action)]
-    
-        net.tStart = nengo.Node(output=i_time, size_in = None, size_out=1)
-        net.LearnAfterT = nengo.Node(output=func_afterT, size_in = n_action+1, size_out = n_action)
-        
-#        [nengo.Connection(net.Delay.output[n], net.LearningConnections[n].learning_rule) for n in range(n_action)]
-        [nengo.Connection(net.Delay.output[n], net.LearnAfterT[n]) for n in range(n_action)]
-        nengo.Connection(net.tStart, net.LearnAfterT[-1])
-        [nengo.Connection(net.LearnAfterT[n], net.LearningConnections[n].learning_rule) for n in range(n_action)]
-
-        
-
-#        net.Hard = nengo.Node(output=1)
+        #        net.Hard = nengo.Node(output=1)
 #        nengo.Connection(net.Hard, net.ActionSelection[2], transform=-1) #add value to number 1 to increase 
 #        nengo.Connection(net.Hard, net.Error.input[n], transform=-1) #add value to number 1 to increase 
 
         return net 
     
     
+    
 def input_function(t):
     return [0, 0.2, 0.1, 0.3, 0.7, 0, 0.1]
 
+
+
+#This function can be used to validate an output
+#Set reward r[-1] to a value (e.g. 0.4)
+#Set all action inhibitions to 1
+#Set one action inhibition to 0. It will start learning after t_start = 1.5 (can be changed in the qnet_associative call)
 def reward_function(t):
     r = 22 * [1] #inverse one hot encoding
     r[-1] = 0.4
-    if t > 1:
-        r[10] = 0
-#    r[10] = 0
-
+#    if t > 1:
+#        r[10] = 1
+    r[10] = 0
     return r
 
 
@@ -138,7 +79,7 @@ if __name__ == "__main__":
     reward = reward_function(0)
     output = RNodeOutputProber(n_action)
     
-    SNN_Q_ass = qnet_associative(False, signal, reward_function, 1.5, np.random.uniform(0, 1), output.ProbeFunc, 21)
+    SNN_Q_ass = qnet_associative(False, signal, reward_function, 1.5, np.random.uniform(0, 1), 0, output.ProbeFunc, 21)
     nengo.rc.set('progress', 'progress_bar', 'nengo.utils.progress.TerminalProgressBar') #Terminal progress bar for inline
     
     with SNN_Q_ass:

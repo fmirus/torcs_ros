@@ -27,7 +27,7 @@ sys.path.append(cwd[:-24] + "common")
 cwd = cwd[:-24]
 #print(cwd[:-24] + "common")
 from bzVector import vec3, vec4 #2d and 3d vector definition; ERROR; roslaunch does not work with cwd
-from bzReadTrajectoryParams import readTrajectoryParams, readVisualize, calcTrajectoryAmount
+from bzReadYAML import readTrajectoryParams, readVisualize, calcTrajectoryAmount
 
 from bzGeometricFuncs import BaseLinkToTrajectory
 
@@ -204,6 +204,7 @@ class TrajectoryPublish():
             self.ros_rot.Set(msg_frame.transforms[frame_idx]) #Get rotation from published ros message
           
             #check whether a new trajectory has to be published
+#            print(self.b_TrajectoryNeeded)
             if self.b_TrajectoryNeeded == True:
                 self.selectAndPublishTrajectory()
                 self.b_TrajectoryNeeded = False

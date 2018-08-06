@@ -24,13 +24,14 @@ import sys
 import os
 import rospkg
 import datetime
+import yaml
 
 cwd = rospkg.RosPack().get_path('torcs_ros_trajectory_gen')
 sys.path.append(cwd[:-24] + "common")
 cwd = cwd[:-24]
 
-from bzReadTrajectoryParams import readTrajectoryParams, calcTrajectoryAmount
-from ros_to_nengo_nodes import NodeInputScan, NodeInputReward, NodeInputStartTime, NodeInputEpsilon, NodeOutputProber
+from bzReadYAML import readTrajectoryParams, calcTrajectoryAmount, readNengoHyperparams
+from ros_to_nengo_nodes import NodeInputScan, NodeInputReward, NodeInputStartTime, NodeInputEpsilon, NodeOutputProber, NodeInhibitAlLTraining
 
 
         
@@ -42,10 +43,10 @@ class TrajectorySelector():
         #### various parameters and variables ####
         #choose index of scanners to use
         #angle min/max: +-1.57; increment 0.1653; instantenous, range: 200 m
-        self.a_selectScanTrack = [3, 6, 11, -7, -4]
+        [self.f_epsilon_init, self.f_decay, self.f_learning_rate, self.a_selectScanTrack] = readNengoHyperparams(cwd)
         self.param_rangeNormalize = 200 #value used for normalization. all values above will be considered as 1
         self.param_f_maxExpectedSpeed = 37.0 #[km/h], set higher than 34 deliberately to scale reward a bit
-        [self.param_f_longitudinalDist, _, self.param_n_action] = readTrajectoryParams(cwd)
+        [self.param_f_longitudinalDist, self.param_f_lateralDist, self.param_n_action] = readTrajectoryParams(cwd)
         self.param_n_action = calcTrajectoryAmount(self.param_n_action) #get how many trajectories are actually used
         self.calculateRewardRange() #calculate normalization factor for reward from parameters
         self.reward = np.nan
@@ -72,13 +73,15 @@ class TrajectorySelector():
 
         
         #### nengo net and parameters #### 
-        self.state_inputer = NodeInputScan(len(self.a_selectScanTrack)) #object passed to nengo net with scan values as input
+        self.state_inputer = NodeInputScan(self.a_selectScanTrack) #object passed to nengo net with scan values as input
         self.reward_inputer = NodeInputReward(self.param_n_action) #object passed to nengo net with reward as input
         self.time_inputer = NodeInputStartTime() #object passed to nengo net with current simulations starting time as input
-        self.epsilon_inputer = NodeInputEpsilon(self.param_n_action) #object passed to nengo implementing epsilon greedy exploration
+        self.epsilon_inputer = NodeInputEpsilon(self.param_n_action, self.f_epsilon_init, self.f_decay) #object passed to nengo implementing epsilon greedy exploration
+        self.inhibit_inputer = NodeInhibitAlLTraining()
         self.output_prober = NodeOutputProber(self.param_n_action) #naction currently hardocded, should be a global ros parameter
         self.q_net_ass = snn.qnet_associative(False, self.state_inputer, self.reward_inputer, self.time_inputer,
-                                              self.epsilon_inputer, self.output_prober.ProbeFunc, self.param_n_action) #construct nengo net with proper inputs
+                                              self.epsilon_inputer, self.inhibit_inputer, self.output_prober.ProbeFunc, self.param_n_action,
+                                              self.f_learning_rate) #construct nengo net with proper inputs
         nengo.rc.set('progress', 'progress_bar', 'nengo.utils.progress.TerminalProgressBar') #Terminal progress bar for inline
 #        self.sim = nengo.Simulator(self.q_net_ass, progress_bar=True, optimize=True) #optimize trades in build for simulation time
         self.sim = nengo_dl.Simulator(self.q_net_ass, progress_bar=False) #use nengo_dl simulator for reduced simulation time and parameter saving feature
@@ -254,14 +257,50 @@ class TrajectorySelector():
 
     #saves nengo parameters with nengo_dl feature with epsiode number and current date as name
     def saveNengoParams(self):
-        dir_name = self.cwd[:-14] + "nengo_parameters"
-        if not os.path.isdir(dir_name):
+        dir_name = self.cwd[:-14] + "nengo_parameters" # get directory name
+        if not os.path.isdir(dir_name): #create directory if it doesnt exist yet
             os.mkdir(dir_name)
-        path_name = dir_name + "/Episode-"+ str(int(self.epsilon_inputer.episode)-2)+"_Date-" + str(self.today.year) + "-" + str(self.today.month) + "-" + str(self.today.day)
-        print("\033[96mEpisode " + str(int(self.epsilon_inputer.episode-2)) + " reached. Saving parameters to " + path_name + "\033[0m")
-        self.sim.save_params(path_name)
-        
+        if ((self.epsilon_inputer.episode-2) == 0): #on first episode
+            self.determinePrefix(dir_name) #create a unique prefix number for trainings on the same date
+            self.saveDescription(dir_name) #save a yaml description file including the trainings hyperparameters
+        #name file
+        path_name = dir_name + "/Date-" + str(self.today.year) + "-" + str(self.today.month) + "-" + str(self.today.day) +"_Prefix-" + str(self.prefix) + "_Episode-"+ str(int(self.epsilon_inputer.episode)-2)
+        print("\033[96mEpisode " + str(int(self.epsilon_inputer.episode-2)) + " reached. Saving parameters to " + path_name + "\033[0m") #notify user of saving
+        self.sim.save_params(path_name) #call nengo_dl save function
 
+    #saves a yaml file including the current learnings hyperparameters
+    def saveDescription(self, directory):
+        #define dictionary of hyperparameters
+        descr = dict(
+                start_time = datetime.datetime.today(), 
+                scan_sensors = self.a_selectScanTrack,
+                LEARNING_PARAMETERS = dict(
+                        epsilon_init = self.f_epsilon_init,
+                        decay = self.f_decay,
+                        learning_rate = self.f_learning_rate),
+                TRAJECTORY_PARAMETERS = dict(
+                        longitudinal_distance = self.param_f_longitudinalDist,
+                        lateral_distance = self.param_f_lateralDist,
+                        total_number_actions = self.param_n_action
+                        )
+                )
+            
+        path_name = directory + "/Date-" + str(self.today.year) + "-" + str(self.today.month) + "-" + str(self.today.day) +"_Prefix-" + str(self.prefix) + "_Description.yaml"
+        #save as yaml file
+        with open(path_name, 'w') as yamlfile:
+            yaml.dump(descr, yamlfile, default_flow_style=False)
+        
+    #determine a unique prefix for trainings happening the same day by checking for which files already exist
+    def determinePrefix(self, directory):
+        path_name = directory + "/Date-" + str(self.today.year) + "-" + str(self.today.month) + "-" + str(self.today.day) + "_Description.yaml"
+        nCounter = 1#used as unique identifier 
+        path_length = len(path_name[:-5]) #compare path length to identifiy number of inserted characters
+        while(os.path.isfile(path_name)): #iterate as long as no new valid file name has been found
+            cur_path_length = len(path_name[:-5]) 
+            diff_path_length = cur_path_length-path_length #compare path lengths
+            path_name = path_name[:(-5-diff_path_length)] + str(nCounter) + ".yaml" #assign new file name
+            nCounter += 1 
+        self.prefix = nCounter-1
 if __name__ == "__main__":
     rospy.init_node("trajectory_selection")
     selector = TrajectorySelector(cwd)
