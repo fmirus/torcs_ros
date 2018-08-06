@@ -38,7 +38,7 @@ from ros_to_nengo_nodes import NodeInputScan, NodeInputReward, NodeInputStartTim
 class TrajectorySelector():
     def __init__(self, cwd, scan_topic = "/torcs_ros/scan_track", action_topic="/torcs_ros/notifications/ctrl_signal_action",
                  sensors_topic = "/torcs_ros/sensors_state", speed_topic="/torcs_ros/speed", 
-                 ctrl_topic = "torcs_ros/ctrl_cmd"):
+                 ctrl_topic = "/torcs_ros/ctrl_cmd"):
   
         #### various parameters and variables ####
         #choose index of scanners to use
@@ -158,6 +158,7 @@ class TrajectorySelector():
         else:
             self.b_doSimulateOnce = True #action signal is not set anymore, on next true we need to perform another simulation
         if (self.b_handshake == False): 
+#            print("no handshake")
             msg_sel = Int8()
             msg_sel.data = self.idx_next_action
             self.pub_trajectorySelection.publish(msg_sel)
@@ -183,6 +184,7 @@ class TrajectorySelector():
         
     def handshake_callback(self, msg_handshake):
         self.b_handshake = msg_handshake.data
+#        self.b_handshake = True
         
     def ctrl_callback(self, msg_ctrl):
         self.b_handshake = True
