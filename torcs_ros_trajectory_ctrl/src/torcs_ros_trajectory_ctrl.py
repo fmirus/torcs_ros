@@ -60,7 +60,8 @@ class FollowTrajectory():
         self.ctrl_gear = 0 #desired gear [calculated from look up table]
         self.needForAction_msg = Bool() #message that indicates that end of a trajectory has been reached
         self.msg_restart = Bool()
-      
+        self.msg_ctrl = TORCSCtrl() #message container
+
         #### calculation parameters and variables #### 
         self.param_kappa = 0.75/2 #value used to adjust desired heading to, experimentlly determined. 0.75 lead to small oscillation
         self.param_steerLock = np.deg2rad(21) #max. steerLock in torcs/data/cars/tbt1 is 21 deg
@@ -125,47 +126,59 @@ class FollowTrajectory():
            
     #calculate and publish control commands
     def calculate_ctrl_commands(self):
-        if (len(self.trajectory.poses) > 0): #ensure this callback does not happen before the first trajectory has been published
-            msg_ctrl = TORCSCtrl() #message container
+        if (self.sen_speedX < 30):
+            self.ControlClassic();
+            self.trajectory = Path() #reset as empty
+            self.trajectory.poses = []
+        elif (len(self.trajectory.poses) > 0): #ensure this callback does not happen before the first trajectory has been published
             
             [f_distToTraj, idx_poseHeading, f_distToEnd, self.needForAction_msg.data] = BaseLinkToTrajectory(
                     self.ros_trans.x, self.ros_trans.y, self.trajectory.poses) #Calculate baselink to trajectory information
             self.trajectory_rot.Set(self.trajectory.poses[idx_poseHeading]) #Convert msg type to vec4() quatenrion
             f_deltaHeading = self.ComputeAngleDifference(self.ros_rot, self.trajectory_rot) #difference in desired orientation to current baselink orientation
-    
-#            self.ctrl_steering = (self.sen_angle - self.sen_trackpos*self.param_kappa)/self.param_steerLock #control towards midline
-            
+                
             #dist to trajectory has to have a sign
             self.ctrl_steering = (f_deltaHeading + f_distToTraj*self.param_kappa)/self.param_steerLock
             
-            #limit acceleration signal to achieve low constant speeds
-            if (self.sen_rpm < 4000 or self.sen_gear == 0): #allow high enough rpm if car is in neutral gear (start of race)
-                self.ctrl_accel = 0.2
-            else:
-                self.ctrl_accel = 0
-                
-            self.ctrl_gear = SetGearFromLUT(self.sen_gear, self.sen_rpm) #gear lookup
-            
-            #add control data to message container
-            msg_ctrl.accel = self.ctrl_accel
-            msg_ctrl.steering = self.ctrl_steering
-            msg_ctrl.brake = self.ctrl_brake #set to 0
-            msg_ctrl.gear = self.ctrl_gear
-            self.pub_ctrl.publish(msg_ctrl) #publish
+
+            self.RPMandAccel();
+            self.PublishCtrlMessage();
+
             
 
             if (f_distToEnd < 1.5): #check whether end of trajectory has been reached (within a margin)
                 self.needForAction_msg.data = True #indicate a new trajectory is needed
 
             self.pub_needTrajectory.publish(self.needForAction_msg) #send message whether new control is needed or not
-            self.pub_ctrl.publish(msg_ctrl)            
+            self.pub_ctrl.publish(self.msg_ctrl)            
             self.CheckForOutOfTrack() #restart server if vehicle is of track
 
         else: #no trajectory message has been received yet
             self.needForAction_msg.data = True #indicate a new trajectory is needed
             self.pub_needTrajectory.publish(self.needForAction_msg) #send message that new trajectory is needed
             
+    def ControlClassic(self):
+         self.ctrl_steering = (self.sen_angle - self.sen_trackpos*self.param_kappa)/self.param_steerLock #control towards midline
+         self.RPMandAccel()
+         self.PublishCtrlMessage()
+         
+    def RPMandAccel(self):
+         #limit acceleration signal to achieve low constant speeds
+         if (self.sen_rpm < 4000 or self.sen_gear == 0): #allow high enough rpm if car is in neutral gear (start of race)
+            self.ctrl_accel = 0.2
+         else:
+            self.ctrl_accel = 0
+    
+         self.ctrl_gear = SetGearFromLUT(self.sen_gear, self.sen_rpm) #gear lookup
             
+    def PublishCtrlMessage(self):
+        #add control data to message container
+        self.msg_ctrl.accel = self.ctrl_accel
+        self.msg_ctrl.steering = self.ctrl_steering
+        self.msg_ctrl.brake = self.ctrl_brake #set to 0
+        self.msg_ctrl.gear = self.ctrl_gear
+        self.pub_ctrl.publish(self.msg_ctrl) #publish
+        
     #Difference in angle [in rad] between vehicle orientation (baselink) to closest point on trajectory 
     #as we are working with a 2D assumption, the yaw value (angle around z) is the important value, as roll and pitch will be considered 0
     def ComputeAngleDifference(self, quad_baselink, quad_trajectory):
@@ -183,7 +196,7 @@ class FollowTrajectory():
                 b_Restart = True 
                 print("\033[96mClient node is being restarted as vehicle was off track \033[0m") 
 
-        elif (self.sen_speedX < 3): #if low speed, car is probably stuck
+        elif (self.sen_speedX < 3): #if low speed, car is probably stuckF
 #            dt = rospy.Time.now().secs - self.race_start_time.secs #calculate whether race has just started
             if(self.sen_laptime > 15):
 #            if (dt > 15): #do not restart if race has just started
@@ -212,8 +225,8 @@ class FollowTrajectory():
             rospy.wait_for_message(self.sensors_topic, TORCSSensors) #wait for a message from client node to ensure it has restarted
 
             #notify generation node that new trajectory has to be selected as game has been resarted
-            self.needForAction_msg.data = True  
-            self.pub_needTrajectory.publish(self.needForAction_msg)
+#            self.needForAction_msg.data = True  
+#            self.pub_needTrajectory.publish(self.needForAction_msg)
             self.race_start_time = rospy.Time.now() #new race started, reinitialize time
 
 

@@ -32,7 +32,7 @@ cwd = cwd[:-24]
 
 from bzReadYAML import readTrajectoryParams, calcTrajectoryAmount, readNengoHyperparams
 from ros_to_nengo_nodes import NodeInputScan, NodeInputReward, NodeInputStartTime, NodeInputEpsilon, NodeOutputProber, NodeInhibitAlLTraining
-
+from bzConsoleIndicators import IamWorking
 
         
 class TrajectorySelector():
@@ -53,9 +53,11 @@ class TrajectorySelector():
         self.cwd = cwd
         self.today = datetime.date.today()
         
+        
         #### subscription parameters ####
         self.f_angle = 0
         self.b_TrajectoryNeeded = False
+        self.n_needCounter = 0
         self.f_lapTimeStart = 0
         self.f_lapTimeCurrent = 0 
         self.f_lapTimePrevious = 0#needed for lap change
@@ -70,14 +72,14 @@ class TrajectorySelector():
         self.f_trackPos = 0
         self.f_trackPosStart = 0
         self.b_hasBeenTrained = False
-
+        self.b_OmitNextReward = False
         
         #### nengo net and parameters #### 
         self.state_inputer = NodeInputScan(self.a_selectScanTrack) #object passed to nengo net with scan values as input
         self.reward_inputer = NodeInputReward(self.param_n_action) #object passed to nengo net with reward as input
         self.time_inputer = NodeInputStartTime() #object passed to nengo net with current simulations starting time as input
         self.epsilon_inputer = NodeInputEpsilon(self.param_n_action, self.f_epsilon_init, self.f_decay) #object passed to nengo implementing epsilon greedy exploration
-        self.inhibit_inputer = NodeInhibitAlLTraining()
+        self.inhibit_inputer = NodeInhibitAlLTraining() #object passed to nengo to inhibit learning net
         self.output_prober = NodeOutputProber(self.param_n_action) #naction currently hardocded, should be a global ros parameter
         self.q_net_ass = snn.qnet_associative(False, self.state_inputer, self.reward_inputer, self.time_inputer,
                                               self.epsilon_inputer, self.inhibit_inputer, self.output_prober.ProbeFunc, self.param_n_action,
@@ -107,7 +109,7 @@ class TrajectorySelector():
         self.sub_ctrlCmd = rospy.Subscriber(ctrl_topic, TORCSCtrl, self.ctrl_callback) #check for meta command
         self.sub_restart = rospy.Subscriber("/torcs_ros/notifications/restart_process", Bool, self.restart_callback) #see whether client is restarting torcs
         self.sub_save = rospy.Subscriber("/torcs_ros/notifications/save", Bool, self.save_callback) #check for manual save nengo command
-        self.sub_deterministic = rospy.Subscriber("torcs_ros/notifications/deterministic", Bool, self.deterministic_callback) #manually sets epsilon value to 0 to achieve deterministic behavior
+        self.sub_deterministic = rospy.Subscriber("/torcs_ros/notifications/deterministic", Bool, self.deterministic_callback) #manually sets epsilon value to 0 to achieve deterministic behavior
         
         
     def scan_callback(self, msg_scan):
@@ -115,9 +117,18 @@ class TrajectorySelector():
 
     #Checks whether a new trajector is needed
     def needForAction_callback(self, msg_action):
+#        IamWorking();
+#        print("called")
+        if (self.b_TrajectoryNeeded == True and msg_action.data == True):
+            self.n_needCounter += 1
+        else:
+            self.n_needCounter = 0
         self.b_TrajectoryNeeded = msg_action.data
         if (self.b_TrajectoryNeeded == True): #if a new trajectory is needed
-            if self.b_doSimulateOnce: #ensures simulation is only performed once
+#            print("entered")
+            if (self.b_doSimulateOnce or self.n_needCounter >= 30): #ensures simulation is only performed once
+                if(self.n_needCounter >= 30):
+                    print("\033[31mAction still requested but hasn't been sent in a long time. Repeating simulation and publish.-1\033[0m")
                 self.pub_demandPause.publish(self.msg_pause) #demand pause in order to perform simulation
                 self.msg_nengo.data = True
                 self.pub_nengoRunning.publish(self.msg_nengo.data) #inform that a calculation is in progress and game should remain paused
@@ -140,8 +151,12 @@ class TrajectorySelector():
                 #while the network is capable of passing this argument and choosing the q-value associated with the epsilon exploration action
                 #this yields in unncessary simulation time and will be jumped because of it (thought to decrease overall needed time in epsilon decay learning)
                 if (self.epsilon_inputer.nextVal == -1):
-                    self.sim.run(0.5, progress_bar = False) #run simulation for x 
+                    try:
+                        self.sim.run(0.5, progress_bar = False) #run simulation for x 
+                    except:
+                        print("\033[31mIDX ERROR!: Next Val was -1\033[0m")
                     self.idx_next_action = np.argmax(np.array(self.output_prober.probe_vals[:-1])) #get next action from output
+                    print("Chosing action: " + str(self.idx_next_action) +" with an estimated Q-value of \033[32m" +str(self.output_prober.probe_vals[-1]) +"\033[0m")
                 else:
                     self.idx_next_action = self.epsilon_inputer.nextVal
                     
@@ -154,7 +169,7 @@ class TrajectorySelector():
                 self.msg_nengo.data = False
                 self.pub_nengoRunning.publish(self.msg_nengo.data) #notify that nengo is not calculating anymore
                 self.b_doSimulateOnce = False #don't simualte again until this trajectory has been published (which means that the action signal will turn to False)
-                
+                self.n_needCounter = 0
         else:
             self.b_doSimulateOnce = True #action signal is not set anymore, on next true we need to perform another simulation
         if (self.b_handshake == False): 
@@ -188,6 +203,10 @@ class TrajectorySelector():
         
     def ctrl_callback(self, msg_ctrl):
         self.b_handshake = True
+        if(msg_ctrl.meta == 1):
+            #Do not reward next action, as we have to achieve 30 km/h first
+            self.b_OmitNextReward = True
+            self.b_doSimulateOnce = True
 
     #Train with negative reward on restart, as car is either stuck or off track due to last performed action          
     def restart_callback(self, msg_restart):
@@ -213,7 +232,8 @@ class TrajectorySelector():
     def save_callback(self, msg_save):
         self.saveNengoParams() #saves nengo parameters when something is published to this topic
         
-    def deterministic_callback(self, msg_det):    
+    def deterministic_callback(self, msg_det):  
+        print("\033[96mChange from epsilon greedy to deterministic or vice versa received \033[0m")
         self.epsilon_inputer.SetUnsetDeterministic()
     
     #calculate the lowest amount of time needed at the expected speed to traverse the longitudinal distance if the road were to be straight
@@ -225,17 +245,19 @@ class TrajectorySelector():
         
         
     def calculateReward(self):
-        if (self.f_speedXCurrent < 30 or self.f_speedXStart < 30): #disregard when end speed has not been reached yet
-            self.reward = np.nan
-        elif (self.f_lapTimeCurrent > self.f_lapTimeStart): #ensure no new lap has started
-            f_distTravelled = self.f_distCurrent - self.f_distStart #
-            f_timeNeeded = self.f_lapTimeCurrent - self.f_lapTimeStart #can be neglected if we 
-            self.reward = (f_distTravelled/self.param_f_longitudinalDist) / (f_timeNeeded/self.param_f_minTime) #maybe pow 2
-            self.reward *= self.reward #scale reward for more distinction between all trajectories
-            self.reward += (1-abs(self.f_trackPos))*2-(1-abs(self.f_trackPosStart)) # + (1-abs(self.f_angle)/2) or delta trackpos and delta angle (only in associative) 
-        self.checkRewardValidity() #ensure no weird rewards have been calculated
-        self.trainOnReward() #traing
-        
+        if(self.b_OmitNextReward == False):
+            if (self.f_speedXCurrent < 30 or self.f_speedXStart < 30): #disregard when end speed has not been reached yet
+                self.reward = np.nan
+            elif (self.f_lapTimeCurrent > self.f_lapTimeStart): #ensure no new lap has started
+                f_distTravelled = self.f_distCurrent - self.f_distStart #
+                f_timeNeeded = self.f_lapTimeCurrent - self.f_lapTimeStart #can be neglected if we 
+                self.reward = (f_distTravelled/self.param_f_longitudinalDist) / (f_timeNeeded/self.param_f_minTime) #maybe pow 2
+                self.reward *= self.reward #scale reward for more distinction between all trajectories
+                self.reward += (1-abs(self.f_trackPos))*2-(1-abs(self.f_trackPosStart)) # + (1-abs(self.f_angle)/2) or delta trackpos and delta angle (only in associative) 
+            self.checkRewardValidity() #ensure no weird rewards have been calculated
+            self.trainOnReward() #traing
+        else:
+            self.b_OmitNextReward = False
 
         
     def checkRewardValidity(self):
@@ -251,7 +273,11 @@ class TrajectorySelector():
             self.reward_inputer.RewardAction(self.idx_next_action, self.reward) #input reward to nengo node
             self.epsilon_inputer.OnTraining() #prepare for training
             self.epsilon_inputer.SetTraining() #update epsilon values
-            self.sim.run(0.5,  progress_bar = False) #train
+            try:
+                self.sim.run(0.5,  progress_bar = False) #train
+            except:
+                print("\033[31mIDX ERROR!: Next Val was "+ str(self.epsilon_inputer.nextVal) +"\033[0m")
+                
             if((self.epsilon_inputer.episode-2) % 200 == 0): #save intermediate nengo parameters every x parameters
                 self.saveNengoParams()
  
@@ -303,6 +329,7 @@ class TrajectorySelector():
             path_name = path_name[:(-5-diff_path_length)] + str(nCounter) + ".yaml" #assign new file name
             nCounter += 1 
         self.prefix = nCounter-1
+        
 if __name__ == "__main__":
     rospy.init_node("trajectory_selection")
     selector = TrajectorySelector(cwd)

@@ -88,8 +88,8 @@ if __name__ == "__main__":
         pr_selection = nengo.Probe(SNN_Q_ass.ActionSelection)
         pr_val_reps  = nengo.Probe(SNN_Q_ass.QEnsemble_In, synapse=0.1)
         
-        pr_afterTrans = nengo.Probe(SNN_Q_ass.Error.output, synapse = 0.1)
-        pr_afterDelay = nengo.Probe(SNN_Q_ass.Delay.output, synapse = 0.01)
+        pr_afterTrans = nengo.Probe(SNN_Q_ass.errorA_net.Error.output, synapse = 0.1)
+        pr_afterDelay = nengo.Probe(SNN_Q_ass.learning_net.Delay.output, synapse = 0.01)
        
         #    pr_Qvals = []
         #    [pr_Qvals.append(nengo.Probe(SNN_Q_ass.QEnsemble.output[n])) for n in range(n_dim)]

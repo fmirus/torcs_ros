@@ -43,7 +43,7 @@ class TrajectoryPublish():
         self.ros_rot = vec4() #a transformations rotatory values received from ros subscription
         self.newest_ros_transform = TransformStamped();  
         self.idx_TrajectorySelected  = 0
-        self.b_TrajectoryNeeded = True 
+        self.b_TrajectoryNeeded = False #Flag set to false if starting with classic controller, True if nengo is called immediately
         self.b_initHandshake = False
         self.b_initHandshakeSent = False
         #### parameters for trajectory generation ####
@@ -74,12 +74,16 @@ class TrajectoryPublish():
         self.pub_pathSelected = rospy.Publisher("/torcs_ros/trajectorySelected", Path, queue_size=1) #publisher for currently selected trajectory [in world frame]
         self.pub_pathSelectedVisual = rospy.Publisher("/torcs_ros/trajectorySelectedVis", Path, queue_size=1) #publisher for currently selected trajectory [in baselink frame]
         self.pub_handshake = rospy.Publisher("/torcs_ros/gen2selHandshake", Bool, queue_size=1)
+    
         
         #### subscribers ####
         self.sub_frame = rospy.Subscriber(frame_topic, TFMessage, self.sub_frame_callback, queue_size=1) #a subscriber that manually subscribes to the published frames
 #        self.sub_needForAction = rospy.Subscriber(action_topic, Bool, self.sub_needForAction_callback, queue_size=1) #receives message whether a new trajectory is needed
         self.sub_trajectorySelector = rospy.Subscriber(selector_topic, Int8, self.sub_trajectorySelector_callback, queue_size=1) #receives a trajectory index whenever a new trajectory is needed and selected
+        self.sub_restart = rospy.Subscriber("/torcs_ros/notifications/IsRestarted", Bool, self.restart_callback) #x
         
+    def restart_callback(self, message): #x
+        self.b_TrajectoryNeeded = False; #classic controller first
     def set_trajectories(self):
         ########## Path version of trajectories ##############
         

@@ -58,7 +58,8 @@ def create_action_selection_net(b_Direct, signal, i_reward, i_time, i_epsilon, i
         #Connect encoding to Q-values with a learnable connection per action
         #Initalize Q population with a low random reward
         net.LearningConnections = [nengo.Connection(net.QEnsemble_In, net.QEnsembleArray_Out.input[n], function=lambda x: 1,#np.random.uniform(0, 0.1), 
-                                                    label='Learning Connection Action' + str(n), learning_rule_type=nengo.PES(learning_rate=f_learningRate), 
+                                                    label='Learning Connection Action' + str(n), learning_rule_type=nengo.PES(learning_rate=f_learningRate,
+                                                                                            pre_synapse=nengo.synapses.Lowpass(tau=0.05)), #default is tau=0.005
                                                     synapse=tau_mid) for n in range(n_action)]
     
         
@@ -69,6 +70,9 @@ def create_action_selection_net(b_Direct, signal, i_reward, i_time, i_epsilon, i
         [nengo.Connection(net.QEnsembleArray_Out.output[n], net.ActionSelection[n], label='Q utility to action'+str(n),
                           synapse=tau_long) for n in range(n_action)]
         nengo.Connection(net.eGreedyIn, net.ActionSelection[-1])
+        
+        net.Output = nengo.Node(output=i_output, size_in=n_action+1, size_out=None, label='Output prober')
+        nengo.Connection(net.ActionSelection, net.Output)
         
         return net
     
@@ -101,7 +105,7 @@ def create_learning_net(net, i_time, i_inhibit, n_action, tau_mid, tau_long):
             net.learning_net.LearnAfterT = nengo.Node(output=func_afterT, size_in = n_action+1, size_out = n_action)
     
             [nengo.Connection(net.learning_net.Delay.output[n], net.learning_net.LearnAfterT[n]) for n in range(n_action)]
-            nengo.Connection(net.learning_net.tStart, net.learning_net.LearnAfterT[-1])
+            nengo.Connection(net.learning_net.tStart, net.learning_net.LearnAfterT[-1], synapse=None) #achieve ideal gating for learning
     
             net.learning_net.InhibitAllTraining = nengo.Node(output=i_inhibit, size_in=None, size_out=1)
             [nengo.Connection(net.learning_net.InhibitAllTraining, net.learning_net.Delay.ensembles[n].neurons, 
