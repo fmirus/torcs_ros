@@ -52,8 +52,9 @@ def DoubleMemory(i_timeStart, i_signal, i_radius):
         nengo.Connection(double_mem_net.Mem2.output, double_mem_net.output) #connect second memory to output
         
         #debug nodes to input start time and simulate several ros timesteps
-        double_mem_net.DebugTime = nengo.Node(output = debug_time, size_in = 0, size_out=1)
-        nengo.Connection(double_mem_net.DebugTime, double_mem_net.GateSignal, synapse=None) #synapse None or very low needed for ideal gating behavior (at least for debug)
+#        double_mem_net.StartTime = nengo.Node(output = debug_time, size_in = 0, size_out=1)
+        double_mem_net.StartTime = nengo.Node(output = i_timeStart, size_in = 0, size_out=1)
+        nengo.Connection(double_mem_net.StartTime, double_mem_net.GateSignal, synapse=None) #synapse None or very low needed for ideal gating behavior (at least for debug)
         
         return double_mem_net
         

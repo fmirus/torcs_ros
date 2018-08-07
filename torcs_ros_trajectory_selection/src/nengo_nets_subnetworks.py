@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
     
     
-def create_action_selection_net(b_Direct, signal, i_reward, i_time, i_epsilon, i_inhibit, i_output, n_action, tau_mid, tau_long, f_learningRate=0.001 ,label=''):
+def create_action_selection_net(b_Direct, signal, i_reward, i_time, i_epsilon, i_inhibit, i_output, n_action, i_radius, tau_mid, tau_long, f_learningRate=0.001 ,label=''):
     param_neuron = nengo.neurons.LIF()
     if b_Direct == True:
         param_neuron = nengo.neurons.Direct()
@@ -43,17 +43,19 @@ def create_action_selection_net(b_Direct, signal, i_reward, i_time, i_epsilon, i
                 return x[:-1]
             else:
                 return (len(x)-1)*[0]
-
-        net.stateIn = nengo.Node(output=signal, size_in=None, size_out=n_dim)
+        if (signal != None):
+            net.input = nengo.Node(output=signal, size_in=None, size_out=n_dim)
+        else:
+            net.input = nengo.Node(size_in=n_dim, size_out=n_dim)
         net.eGreedyIn = nengo.Node(output=i_epsilon, label='epsilon greedy input')
         
         #Create an ensemble, each dimension encoding one rangefinder sensor
-        net.QEnsemble_In = nengo.Ensemble(n_neurons = 100, dimensions = n_dim, neuron_type=param_neuron, label='input encoding') 
-        nengo.Connection(net.stateIn, net.QEnsemble_In) #connect input to representation
+        net.QEnsemble_In = nengo.Ensemble(n_neurons = 100, dimensions = n_dim, neuron_type=param_neuron, label='input encoding', radius=1) 
+        nengo.Connection(net.input, net.QEnsemble_In) #connect input to representation
 
         #Create an array of ensembles, each representing one action
         net.QEnsembleArray_Out = nengo.networks.EnsembleArray(n_neurons = 100, n_ensembles=n_action, ens_dimensions=1, 
-                                                                    label='Q Values',neuron_type=param_neuron) 
+                                                                    label='Q Values',neuron_type=param_neuron, radius=i_radius) 
        
         #Connect encoding to Q-values with a learnable connection per action
         #Initalize Q population with a low random reward
