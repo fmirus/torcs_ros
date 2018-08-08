@@ -20,7 +20,6 @@ cwd = rospkg.RosPack().get_path('torcs_ros_client')#trajectory_gen')
 sys.path.append(cwd[:-16] + "common")
 cwd = cwd[:-16]
 
-from bzRestartTORCSraceGUI import RestartTORCSRace
 from std_msgs.msg import Bool
 class Watchdog():
     def __init__(self, sensors_topic = "/torcs_ros/sensors_state"):
