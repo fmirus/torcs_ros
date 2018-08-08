@@ -277,7 +277,7 @@ class TrajectorySelector():
         if not(np.isnan(self.reward)): #no need to run if the reward does not count
 #            print("Training action \033[96m" + str(self.idx_next_action) + "\033[0m with reward: \033[96m" +str(self.reward) + "\033[0m") #console notifcation
 #            self.reward = -5 #DEBUG
-            self.reward_inputer.RewardAction(int(round(self.idx_next_action), self.reward) #input reward to nengo node
+            self.reward_inputer.RewardAction(int(round(self.idx_next_action)), self.reward) #input reward to nengo node
             self.epsilon_inputer.OnTraining() #prepare for training
             self.epsilon_inputer.SetTraining() #update epsilon values
             try:
