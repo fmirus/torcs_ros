@@ -178,7 +178,8 @@ class NodeInhibitAlLTraining():
         self.b_DoInhibit = True
     def DoNotInhibitTrainingSubnetwork(self):
         self.b_DoInhibit = False
-        
+    def SwitchInhibit(self):
+        self.b_DoInhibit = not self.b_DoInhibit
         
 class NodeLogTraining():
     def __init__(self, sim_dt):
@@ -199,6 +200,14 @@ class NodeLogTraining():
         color2 = "\033[32m"
         if (self.QatEnd < self.QatStart):
             color1, color2 = color2, color1
-        print("Training action \033[96m" + str(action) + "\033[0m with reward: \033[96m"  +str(reward)+"\033[0m / \033[96m"
-                                    + str(self.rewardProbed) + " \033[0m (environment/nengo) and error: " + str(self.error))
-        print("This resulted in change of Q-values from " + color1 + str(self.QatStart) +  "\033[0m to " + color2 + str(self.QatEnd) + "\033[0m")
+        print("Trained action \033[96m" + str(action) + "\033[0m with reward: \033[96m%.1f\033[0m/\033[96m%.1f\033[0m" % (reward, self.rewardProbed) + " (env./nengo)" +
+                                    " and error %.2f" % self.error + " | Result: Q-value changed from " + color1 + "%.3f" % self.QatStart + "\033[0m to " +
+                                    color2 + "%.3f" % self.QatEnd + "\033[0m")
+
+    
+class NodeErrorScaling():
+    def __init__(self):
+        self.scale = 1
+        self.nNumber = 0
+    def Step(self):
+        self.nNumber += 1

@@ -2,5 +2,5 @@
 
 f_epsilon_init : 0.5 #reference epsilon value to be reached after f_decay_factor episodes
 f_decay_factor : 300 #rate of decay for epsilon exploration
-f_learning_rate : 0.01 #learning rate to be used in PES 
+f_learning_rate : 0.0001 #learning rate to be used in PES 
 a_scanTrack : [3, 6, 11, -7, -4] #torcs laser scanners used 

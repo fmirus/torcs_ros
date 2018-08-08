@@ -112,7 +112,7 @@ class TrajectorySelector():
         self.sub_restart = rospy.Subscriber("/torcs_ros/notifications/restart_process", Bool, self.restart_callback) #see whether client is restarting torcs
         self.sub_save = rospy.Subscriber("/torcs_ros/notifications/save", Bool, self.save_callback) #check for manual save nengo command
         self.sub_deterministic = rospy.Subscriber("/torcs_ros/notifications/deterministic", Bool, self.deterministic_callback) #manually sets epsilon value to 0 to achieve deterministic behavior
-        
+        self.sub_inhibit = rospy.Subscriber("/trocs_ros/notifications/inhibit", Bool, self.inhibit_callback)
         
     def scan_callback(self, msg_scan):
         self.a_scanTrack = [np.clip(msg_scan.ranges[idx]/self.param_rangeNormalize, 0, 1) for idx in self.a_selectScanTrack] #normalize values and clip them additionally (clip/normalization has pending change)
@@ -227,7 +227,7 @@ class TrajectorySelector():
                 self.msg_nengo.data = False
                 self.pub_nengoRunning.publish(self.msg_nengo.data) #notify that nengo is not calculating anymore
                 self.pub_demandPause.publish(self.msg_pause) #demand game unpause
-                
+                self.reward = np.nan
         else:
             self.b_hasBeenTrained = False #game has been restart, flag can be reset therefore
         
@@ -238,6 +238,10 @@ class TrajectorySelector():
         print("\033[96mChange from epsilon greedy to deterministic or vice versa received \033[0m")
         self.epsilon_inputer.SetUnsetDeterministic()
     
+    
+    def inhibit_callback(self, msg_inhibit):
+        self.inhibit_inputer.SwitchInhibit();
+        print("\033[96mInhibition of learning network changed to: " + str(self.inhibit_inputer.b_DoInhibit) +  "\033[0m")
     #calculate the lowest amount of time needed at the expected speed to traverse the longitudinal distance if the road were to be straight
     #this will then be used to calculate the reward
     #higher values can be achieved in curves, but it is not absoulutely necessary to limit this value to one
@@ -273,7 +277,7 @@ class TrajectorySelector():
         if not(np.isnan(self.reward)): #no need to run if the reward does not count
 #            print("Training action \033[96m" + str(self.idx_next_action) + "\033[0m with reward: \033[96m" +str(self.reward) + "\033[0m") #console notifcation
 #            self.reward = -5 #DEBUG
-            self.reward_inputer.RewardAction(self.idx_next_action, self.reward) #input reward to nengo node
+            self.reward_inputer.RewardAction(int(round(self.idx_next_action), self.reward) #input reward to nengo node
             self.epsilon_inputer.OnTraining() #prepare for training
             self.epsilon_inputer.SetTraining() #update epsilon values
             try:
