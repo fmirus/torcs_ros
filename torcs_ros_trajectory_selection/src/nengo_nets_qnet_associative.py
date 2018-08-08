@@ -15,7 +15,7 @@ from nengo_nets_subnetworks import create_learning_net, connect_to_learning_net,
 import nengo_dl
 
 
-def qnet_associative(b_Direct, signal, i_reward, i_time, i_epsilon, i_inhibit, i_output, n_action, f_learningRate=0.001 ,label=''):
+def qnet_associative(b_Direct, signal, i_reward, i_time, i_epsilon, i_inhibit, i_output, i_trainingProbe, n_action, f_learningRate=0.001 ,label=''):
         param_neuron = nengo.neurons.LIF() #default neuron is leaky integrate and fire
         if b_Direct == True: #set output to direct //depreceated since learning has been added
             param_neuron = nengo.neurons.Direct()
@@ -26,16 +26,18 @@ def qnet_associative(b_Direct, signal, i_reward, i_time, i_epsilon, i_inhibit, i
         q_radius = 2.25
         
         #create action selection net (state---->encoding---learnin_rule--->Q-values--->epsilon-greedy_argmax-->selected_action)
-        net = create_action_selection_net(b_Direct, signal, i_reward, i_time, i_epsilon, i_inhibit, i_output, n_action, q_radius, tau_mid, tau_long,
+        net = create_action_selection_net(b_Direct, signal, i_reward, i_time, i_epsilon, i_inhibit, i_output, 
+                                          n_action, q_radius, tau_mid, tau_long,
                                           f_learningRate,label='')
         with net: 
             
             #create error calculation net for associative learning (Q-values ----> Error calculation )
             #                                                       Reward   ------^
-            net = create_error_net_associative(net, i_reward, n_action, param_neuron, tau_mid, tau_long)
-            #create learning net (for associative learning)                             (Error ----> Delay ----> Only learn in Time Window ---x learning_rule)
-            #                                               One hot encoding ...inhibit...^                                               
-            net = create_learning_net(net, i_time, i_inhibit, n_action, tau_mid, tau_long);
+            net = create_error_net_associative(net, i_reward, n_action, param_neuron, q_radius, tau_mid, tau_long)
+            #create learning net (for associative learning)                             
+            #                             (Error ----> Delay ----> Only learn in Time Window ---x learning_rule)
+            # One hot encoding ...inhibit...^                                               
+            net = create_learning_net(net, i_time, i_inhibit, i_trainingProbe, n_action, tau_mid, tau_long);
 
         #        net.Hard = nengo.Node(output=1)
 #        nengo.Connection(net.Hard, net.ActionSelection[2], transform=-1) #add value to number 1 to increase 

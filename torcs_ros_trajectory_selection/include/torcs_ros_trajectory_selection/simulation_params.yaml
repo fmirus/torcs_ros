@@ -1,6 +1,6 @@
 # Parameters used in trajectory generation
 
-f_epsilon_init : 0.5 #"x" distance between terminal points of leftmost and rightmost trajectories of one category   
-f_decay_factor : 300 #"y" distance between starting and end point of trajectories 
-f_learning_rate : 0.0001 #trajectories generated per category + 1 straight trajectory (total amount = 2*n_amount +1), should be odd (otherwise there is 3 straight trajectories)
-a_scanTrack : [3, 6, 11, -7, -4] #all trajectories are published, heavily impacts performance and should only be set to True for debug purposes
+f_epsilon_init : 0.5 #reference epsilon value to be reached after f_decay_factor episodes
+f_decay_factor : 300 #rate of decay for epsilon exploration
+f_learning_rate : 0.01 #learning rate to be used in PES 
+a_scanTrack : [3, 6, 11, -7, -4] #torcs laser scanners used 

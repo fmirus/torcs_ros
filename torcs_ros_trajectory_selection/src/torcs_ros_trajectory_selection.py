@@ -31,7 +31,7 @@ sys.path.append(cwd[:-24] + "common")
 cwd = cwd[:-24]
 
 from bzReadYAML import readTrajectoryParams, calcTrajectoryAmount, readNengoHyperparams
-from ros_to_nengo_nodes import NodeInputScan, NodeInputReward, NodeInputStartTime, NodeInputEpsilon, NodeOutputProber, NodeInhibitAlLTraining
+from ros_to_nengo_nodes import NodeInputScan, NodeInputReward, NodeInputStartTime, NodeInputEpsilon, NodeOutputProber, NodeInhibitAlLTraining, NodeLogTraining
 from bzConsoleIndicators import IamWorking
 
         
@@ -75,18 +75,20 @@ class TrajectorySelector():
         self.b_OmitNextReward = False
         
         #### nengo net and parameters #### 
+        self.sim_dt = 0.001 #default value
         self.state_inputer = NodeInputScan(self.a_selectScanTrack) #object passed to nengo net with scan values as input
         self.reward_inputer = NodeInputReward(self.param_n_action) #object passed to nengo net with reward as input
         self.time_inputer = NodeInputStartTime() #object passed to nengo net with current simulations starting time as input
         self.epsilon_inputer = NodeInputEpsilon(self.param_n_action, self.f_epsilon_init, self.f_decay) #object passed to nengo implementing epsilon greedy exploration
         self.inhibit_inputer = NodeInhibitAlLTraining() #object passed to nengo to inhibit learning net
         self.output_prober = NodeOutputProber(self.param_n_action) #naction currently hardocded, should be a global ros parameter
+        self.training_logger = NodeLogTraining(self.sim_dt)
         self.q_net_ass = snn.qnet_associative(False, self.state_inputer, self.reward_inputer, self.time_inputer,
-                                              self.epsilon_inputer, self.inhibit_inputer, self.output_prober.ProbeFunc, self.param_n_action,
+                                              self.epsilon_inputer, self.inhibit_inputer, self.output_prober.ProbeFunc, self.training_logger, self.param_n_action,
                                               self.f_learning_rate) #construct nengo net with proper inputs
         nengo.rc.set('progress', 'progress_bar', 'nengo.utils.progress.TerminalProgressBar') #Terminal progress bar for inline
 #        self.sim = nengo.Simulator(self.q_net_ass, progress_bar=True, optimize=True) #optimize trades in build for simulation time
-        self.sim = nengo_dl.Simulator(self.q_net_ass, progress_bar=False) #use nengo_dl simulator for reduced simulation time and parameter saving feature
+        self.sim = nengo_dl.Simulator(self.q_net_ass, progress_bar=False, dt=self.sim_dt) #use nengo_dl simulator for reduced simulation time and parameter saving feature
         
         self.b_doSimulateOnce = True #flag used to prevent repeated/unneeded simulations
         self.idx_last_action = 0 #index of trajectory/action used last, saved for training
@@ -156,10 +158,10 @@ class TrajectorySelector():
                     except:
                         print("\033[31mIDX ERROR!: Next Val was -1\033[0m")
                     self.idx_next_action = np.argmax(np.array(self.output_prober.probe_vals[:-1])) #get next action from output
-                    print("Chosing action: " + str(self.idx_next_action) +" with an estimated Q-value of \033[32m" +str(self.output_prober.probe_vals[-1]) +"\033[0m")
+#                    print("Chosing action: " + str(self.idx_next_action) +" with an estimated Q-value of " +str(self.output_prober.probe_vals[-1]) +"\033[0m")
                 else:
                     self.idx_next_action = self.epsilon_inputer.nextVal
-                    
+                self.epsilon_inputer.nextVal = self.idx_next_action #Reset this value, takes the argmax value instead of the -1; needed for training as it would otherwise nout fix that value
                 ###select previously run output and resimulate in off-time to calculate next output
                 msg_sel = Int8()
                 msg_sel.data = self.idx_next_action
@@ -214,7 +216,7 @@ class TrajectorySelector():
             if(self.b_hasBeenTrained == False): #this flag ensures that the training is performed only once per restart
                 self.b_hasBeenTrained = True 
 #                print("A restart has been requested") 
-                self.reward = -5 #negative reward value
+                self.reward = -1 #negative reward value
                 self.pub_demandPause.publish(self.msg_pause) #demand game pause
                 self.msg_nengo.data = True
                 self.pub_nengoRunning.publish(self.msg_nengo.data) #notify that nengo is calculating
@@ -269,15 +271,17 @@ class TrajectorySelector():
     
     def trainOnReward(self):
         if not(np.isnan(self.reward)): #no need to run if the reward does not count
-            print("Training action \033[96m" + str(self.idx_next_action) + "\033[0m with reward: \033[96m" +str(self.reward) + "\033[0m") #console notifcation
+#            print("Training action \033[96m" + str(self.idx_next_action) + "\033[0m with reward: \033[96m" +str(self.reward) + "\033[0m") #console notifcation
+#            self.reward = -5 #DEBUG
             self.reward_inputer.RewardAction(self.idx_next_action, self.reward) #input reward to nengo node
             self.epsilon_inputer.OnTraining() #prepare for training
             self.epsilon_inputer.SetTraining() #update epsilon values
             try:
                 self.sim.run(0.5,  progress_bar = False) #train
+                self.training_logger.PrintTraining(self.reward, self.idx_next_action)
             except:
                 print("\033[31mIDX ERROR!: Next Val was "+ str(self.epsilon_inputer.nextVal) +"\033[0m")
-                
+            self.epsilon_inputer.AfterTraining()
             if((self.epsilon_inputer.episode-2) % 200 == 0): #save intermediate nengo parameters every x parameters
                 self.saveNengoParams()
  

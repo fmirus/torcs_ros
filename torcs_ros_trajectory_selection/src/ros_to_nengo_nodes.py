@@ -99,7 +99,7 @@ class NodeInputEpsilon():
         self.n_action = in_action #get number of actions as input parameter
         self.episode = 1.0 #counter used for decay, increased on every learning iteration 
         self.decay = i_decay
-        
+        self.b_Inverted = False
     #Set to deterministic behavior. Can be used to manually turn off epsilon exploration
     def DoNotExplore(self):
         self.val = -1
@@ -131,6 +131,15 @@ class NodeInputEpsilon():
     def OnTraining(self):
         self.episode += 1
         self.epsilon = np.clip(self.epsilon_init/(float(self.episode)/(self.decay)), 0, 1) #/(150); epsilon init = 0.1
+        
+        if(self.nextVal >= 0): #TODO Document; rounding and negative explained
+            self.nextVal = -self.nextVal - 0.15
+            self.b_Inverted = True
+        
+    def AfterTraining(self):
+        if(self.b_Inverted == True):
+            self.b_Inverted = False
+            self.nextVal = -self.nextVal + 0.15
     
     def SetUnsetDeterministic(self):
         temp = copy.copy(self.epsilon_temp)
@@ -169,4 +178,27 @@ class NodeInhibitAlLTraining():
         self.b_DoInhibit = True
     def DoNotInhibitTrainingSubnetwork(self):
         self.b_DoInhibit = False
-    
+        
+        
+class NodeLogTraining():
+    def __init__(self, sim_dt):
+        self.QatStart = np.nan
+        self.QatEnd = np.nan
+        self.dt = 0.2
+        self.sim_dt = sim_dt
+        self.rewardProbed = np.nan
+        self.error = np.nan
+    def __call__(self, t, x): #x is start time input 
+        if(t > x[1]+self.dt and t < x[1]+self.dt+4*self.sim_dt):
+            self.QatStart = x[0]
+        self.QatEnd = x[0]
+        self.rewardProbed = x[2]
+        self.error = x[3]
+    def PrintTraining(self, reward, action):
+        color1 = "\033[31m"
+        color2 = "\033[32m"
+        if (self.QatEnd < self.QatStart):
+            color1, color2 = color2, color1
+        print("Training action \033[96m" + str(action) + "\033[0m with reward: \033[96m"  +str(reward)+"\033[0m / \033[96m"
+                                    + str(self.rewardProbed) + " \033[0m (environment/nengo) and error: " + str(self.error))
+        print("This resulted in change of Q-values from " + color1 + str(self.QatStart) +  "\033[0m to " + color2 + str(self.QatEnd) + "\033[0m")
