@@ -22,7 +22,8 @@ def create_action_selection_net(b_Direct, signal, i_reward, i_time, i_epsilon, i
         
     n_dim = len(signal)
     if(type(signal) == list):
-        signal = None
+        if (signal[0] == None):
+            signal = None
 
     with nengo.Network(label=label) as net: 
         #action selection with decaying epsilon exploration
@@ -36,7 +37,10 @@ def create_action_selection_net(b_Direct, signal, i_reward, i_time, i_epsilon, i
             else: #explore
                 idx = int(round(x[-1]))
             retVec = np.zeros(n_action)
-            retVec[idx] = 1 
+            try:
+                retVec[idx] = 1 
+            except:
+                print("\033[32m  x[-1] val: %.2f | Error index: %i | Time: %f \033[0m]" % (x[-1],idx, t))
             retVec = retVec.tolist()
 #            print(idx)
             retVec.append(x[idx]) #returns Q-value associated to chosen action
@@ -55,12 +59,14 @@ def create_action_selection_net(b_Direct, signal, i_reward, i_time, i_epsilon, i
         net.eGreedyIn = nengo.Node(output=i_epsilon, label='epsilon greedy input')
         
         #Create an ensemble, each dimension encoding one rangefinder sensor
-        net.QEnsemble_In = nengo.Ensemble(n_neurons = 100*n_dim, dimensions = n_dim, neuron_type=param_neuron, label='input encoding', radius=1) 
+        net.QEnsemble_In = nengo.Ensemble(n_neurons = 100*n_dim, dimensions = n_dim, neuron_type=param_neuron, label='input encoding', radius=1,
+                                          intercepts=nengo.dists.Uniform(0, 1)) 
         nengo.Connection(net.input, net.QEnsemble_In) #connect input to representation
 
         #Create an array of ensembles, each representing one action
         net.QEnsembleArray_Out = nengo.networks.EnsembleArray(n_neurons = 100, n_ensembles=n_action, ens_dimensions=1, 
-                                                                    label='Q Values',neuron_type=param_neuron, radius=i_radius) 
+                                                                    label='Q Values',neuron_type=param_neuron, radius=i_radius, 
+                                                                    intercepts=nengo.dists.Uniform(-0.5, 1)) 
        
         #Connect encoding to Q-values with a learnable connection per action
         #Initalize Q population with a low random reward
@@ -90,7 +96,7 @@ def create_error_net_associative(net, i_reward, n_action,param_neuron, i_radius,
         with nengo.Network(label='Error network') as net.errorA_net:
             net.errorA_net.Reward = nengo.Node(output=i_reward, size_in=None, size_out=n_action+1)
             net.errorA_net.Error = nengo.networks.EnsembleArray(n_neurons = 100, n_ensembles= n_action, ens_dimensions=1, label='Error calculation',
-                                                         neuron_type=param_neuron, radius=i_radius)
+                                                         neuron_type=param_neuron, radius=i_radius, intercepts=nengo.dists.Uniform(-0.5, 1))
             [nengo.Connection(net.errorA_net.Reward[-1], net.errorA_net.Error.input[n], transform=-1) for n in range(n_action)] #connect reward to each error ensemble
             net = connect_to_error_net_associative(net, n_action, tau_mid, tau_long) 
             return net
@@ -115,7 +121,8 @@ def create_learning_net(net, i_time, i_inhibit, i_trainingProbe, n_action, tau_m
                 else:
                     nCount = 0
                     return (len(x)-1)*[0]
-            net.learning_net.Delay = nengo.networks.EnsembleArray(n_neurons = 100, n_ensembles=n_action, ens_dimensions=1, label='Delayed and inhibited error')
+            net.learning_net.Delay = nengo.networks.EnsembleArray(n_neurons = 100, n_ensembles=n_action, ens_dimensions=1, label='Delayed and inhibited error',
+                                                                  intercepts=nengo.dists.Uniform(-0.5, 1))
             net.learning_net.tStart = nengo.Node(output=i_time, size_in = None, size_out=1)
             net.learning_net.LearnAfterT = nengo.Node(output=func_afterT, size_in = n_action+1, size_out = n_action)
     

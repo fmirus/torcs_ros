@@ -30,16 +30,18 @@ cwd = rospkg.RosPack().get_path('torcs_ros_trajectory_gen')
 sys.path.append(cwd[:-24] + "common")
 cwd = cwd[:-24]
 
-from bzReadYAML import readTrajectoryParams, calcTrajectoryAmount, readNengoHyperparams
+from bzReadYAML import readTrajectoryParams, calcTrajectoryAmount, readNengoHyperparams, readConfigSrc, readsavedNengoHyperparams
 from ros_to_nengo_nodes import NodeInputScan, NodeInputReward, NodeInputStartTime, NodeInputEpsilon, NodeOutputProber, NodeInhibitAlLTraining, NodeLogTraining
 from bzConsoleIndicators import IamWorking
+from bzConsoleInput import cUserIn
 
-        
+
 class TrajectorySelector():
     def __init__(self, cwd, scan_topic = "/torcs_ros/scan_track", action_topic="/torcs_ros/notifications/ctrl_signal_action",
                  sensors_topic = "/torcs_ros/sensors_state", speed_topic="/torcs_ros/speed", 
                  ctrl_topic = "/torcs_ros/ctrl_cmd"):
-  
+        cUserIn(cwd)
+        [_, self.nengo_save, self.nengo_load, self.nengo_path] = readConfigSrc(cwd)
         #### various parameters and variables ####
         #choose index of scanners to use
         #angle min/max: +-1.57; increment 0.1653; instantenous, range: 200 m
@@ -75,6 +77,7 @@ class TrajectorySelector():
         self.b_OmitNextReward = False
         
         #### nengo net and parameters #### 
+        self.nengoLoadParam()
         self.sim_dt = 0.001 #default value
         self.state_inputer = NodeInputScan(self.a_selectScanTrack) #object passed to nengo net with scan values as input
         self.reward_inputer = NodeInputReward(self.param_n_action) #object passed to nengo net with reward as input
@@ -89,6 +92,7 @@ class TrajectorySelector():
         nengo.rc.set('progress', 'progress_bar', 'nengo.utils.progress.TerminalProgressBar') #Terminal progress bar for inline
 #        self.sim = nengo.Simulator(self.q_net_ass, progress_bar=True, optimize=True) #optimize trades in build for simulation time
         self.sim = nengo_dl.Simulator(self.q_net_ass, progress_bar=False, dt=self.sim_dt) #use nengo_dl simulator for reduced simulation time and parameter saving feature
+        self.nengoLoadNet()
         
         self.b_doSimulateOnce = True #flag used to prevent repeated/unneeded simulations
         self.idx_last_action = 0 #index of trajectory/action used last, saved for training
@@ -130,7 +134,7 @@ class TrajectorySelector():
 #            print("entered")
             if (self.b_doSimulateOnce or self.n_needCounter >= 30): #ensures simulation is only performed once
                 if(self.n_needCounter >= 30):
-                    print("\033[31mAction still requested but hasn't been sent in a long time. Repeating simulation and publish.-1\033[0m")
+                    print("\033[31mAction still requested but hasn't been sent in a long time. Repeating simulation and publish.\033[0m")
                 self.pub_demandPause.publish(self.msg_pause) #demand pause in order to perform simulation
                 self.msg_nengo.data = True
                 self.pub_nengoRunning.publish(self.msg_nengo.data) #inform that a calculation is in progress and game should remain paused
@@ -259,7 +263,7 @@ class TrajectorySelector():
                 f_timeNeeded = self.f_lapTimeCurrent - self.f_lapTimeStart #can be neglected if we 
                 self.reward = (f_distTravelled/self.param_f_longitudinalDist) / (f_timeNeeded/self.param_f_minTime) #maybe pow 2
                 self.reward *= self.reward #scale reward for more distinction between all trajectories
-                self.reward += (1-abs(self.f_trackPos))*2-(1-abs(self.f_trackPosStart)) # + (1-abs(self.f_angle)/2) or delta trackpos and delta angle (only in associative) 
+                self.reward += ((1-abs(self.f_trackPos))*2-(1-abs(self.f_trackPosStart)))/2 # + (1-abs(self.f_angle)/2) or delta trackpos and delta angle (only in associative) 
             self.checkRewardValidity() #ensure no weird rewards have been calculated
             self.trainOnReward() #traing
         else:
@@ -274,10 +278,11 @@ class TrajectorySelector():
         pass
     
     def trainOnReward(self):
+        if(not np.equal(np.mod(self.idx_next_action, 1), 0)): #this happens as the meta command is sent repeatedly and no action pass through happens in between which would be the needed/desired behavior
+            self.reward = np.nan
         if not(np.isnan(self.reward)): #no need to run if the reward does not count
 #            print("Training action \033[96m" + str(self.idx_next_action) + "\033[0m with reward: \033[96m" +str(self.reward) + "\033[0m") #console notifcation
-#            self.reward = -5 #DEBUG
-            self.reward_inputer.RewardAction(int(round(self.idx_next_action)), self.reward) #input reward to nengo node
+            self.reward_inputer.RewardAction(self.idx_next_action, self.reward) #input reward to nengo node
             self.epsilon_inputer.OnTraining() #prepare for training
             self.epsilon_inputer.SetTraining() #update epsilon values
             try:
@@ -293,19 +298,21 @@ class TrajectorySelector():
 
     #saves nengo parameters with nengo_dl feature with epsiode number and current date as name
     def saveNengoParams(self):
-        dir_name = self.cwd[:-14] + "nengo_parameters" # get directory name
-        if not os.path.isdir(dir_name): #create directory if it doesnt exist yet
-            os.mkdir(dir_name)
-        if ((self.epsilon_inputer.episode-2) == 0): #on first episode
-            self.determinePrefix(dir_name) #create a unique prefix number for trainings on the same date
-            self.saveDescription(dir_name) #save a yaml description file including the trainings hyperparameters
-        #name file
-        path_name = dir_name + "/Date-" + str(self.today.year) + "-" + str(self.today.month) + "-" + str(self.today.day) +"_Prefix-" + str(self.prefix) + "_Episode-"+ str(int(self.epsilon_inputer.episode)-2)
-        print("\033[96mEpisode " + str(int(self.epsilon_inputer.episode-2)) + " reached. Saving parameters to " + path_name + "\033[0m") #notify user of saving
-        self.sim.save_params(path_name) #call nengo_dl save function
+        if(self.nengo_save):
+            dir_name = self.cwd[:-14] + "nengo_parameters" # get directory name
+            if not os.path.isdir(dir_name): #create directory if it doesnt exist yet
+                os.mkdir(dir_name)
+            if ((self.epsilon_inputer.episode-2) == 0): #on first episode
+                self.determinePrefix(dir_name) #create a unique prefix number for trainings on the same date
+                self.saveDescription() #save a yaml description file including the trainings hyperparameters
+            #name file
+            path_name = self.directory + "/D-" + str(self.year) + "-" + str(self.month) + "-" + str(self.day) + "_E-"+ str(int(self.epsilon_inputer.episode)-2)
+            print("\033[96mEpisode " + str(int(self.epsilon_inputer.episode-2)) + " reached. Saving parameters to " + path_name + "\033[0m") #notify user of saving
+            self.sim.save_params(path_name) #call nengo_dl save function
+#            self.sim.save_params(self.directory) #call nengo_dl save function
 
     #saves a yaml file including the current learnings hyperparameters
-    def saveDescription(self, directory):
+    def saveDescription(self):
         #define dictionary of hyperparameters
         descr = dict(
                 start_time = datetime.datetime.today(), 
@@ -321,23 +328,50 @@ class TrajectorySelector():
                         )
                 )
             
-        path_name = directory + "/Date-" + str(self.today.year) + "-" + str(self.today.month) + "-" + str(self.today.day) +"_Prefix-" + str(self.prefix) + "_Description.yaml"
+        path_name = self.directory + "/D-" + str(self.year) + "-" + str(self.month) + "-" + str(self.day) + "_Description.yaml"
         #save as yaml file
         with open(path_name, 'w') as yamlfile:
             yaml.dump(descr, yamlfile, default_flow_style=False)
         
-    #determine a unique prefix for trainings happening the same day by checking for which files already exist
-    def determinePrefix(self, directory):
-        path_name = directory + "/Date-" + str(self.today.year) + "-" + str(self.today.month) + "-" + str(self.today.day) + "_Description.yaml"
-        nCounter = 1#used as unique identifier 
-        path_length = len(path_name[:-5]) #compare path length to identifiy number of inserted characters
-        while(os.path.isfile(path_name)): #iterate as long as no new valid file name has been found
-            cur_path_length = len(path_name[:-5]) 
-            diff_path_length = cur_path_length-path_length #compare path lengths
-            path_name = path_name[:(-5-diff_path_length)] + str(nCounter) + ".yaml" #assign new file name
-            nCounter += 1 
-        self.prefix = nCounter-1
         
+    def determinePrefix(self, directory):
+        self.year = str(self.today.year)[2:]
+        self.month = str(self.today.month)
+        self.day = str(self.today.day)
+        if (self.today.month < 10):
+            self.month = '0' + self.month
+        if (self.today.day < 10):
+            self.day = '0' + self.day
+            
+        path_name = directory + "/D-" + self.year + "-" + self.month + "-" + str(self.day) + "P-0"
+        while(os.path.isdir(path_name)):
+            path_name = path_name[:-1] + str(int(path_name[-1]) +1)
+#        path_name += string
+        os.mkdir(path_name)
+        self.directory = path_name
+        
+        
+    def nengoLoadNet(self):
+        if (self.nengo_load):
+            print("\033[96m Loading nengo parameters as defined in config from: " + self.nengo_path + "\033[0m")
+            self.sim.load_params(self.nengo_path)
+            path = self.nengo_path
+            episode = ''
+            while(path[-1] >= '0' and path[-1] <= '9'):
+                episode = path[-1] + episode
+                path = path[:-1]
+            self.epsilon_inputer.episode = int(episode) + 2
+            self.epsilon_inputer.CalcEpsilon()
+
+    def nengoLoadParam(self):
+        if(self.nengo_load):
+            path = self.nengo_path[:self.nengo_path.rfind("/")+1]
+            files = os.listdir(path)
+            fileDesc = [fileT for fileT in files if "Description.yaml" in fileT]
+            fileDesc = fileDesc[0]
+            
+            [self.f_epsilon_init, self.f_decay, self.f_learning_rate, self.a_selectScanTrack] = readsavedNengoHyperparams(path +"/" +fileDesc)
+              
 if __name__ == "__main__":
     rospy.init_node("trajectory_selection")
     selector = TrajectorySelector(cwd)

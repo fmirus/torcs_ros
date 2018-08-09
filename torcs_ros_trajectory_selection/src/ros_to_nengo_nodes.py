@@ -130,7 +130,7 @@ class NodeInputEpsilon():
     #Called before every training, Update decaying epsilon parameter
     def OnTraining(self):
         self.episode += 1
-        self.epsilon = np.clip(self.epsilon_init/(float(self.episode)/(self.decay)), 0, 1) #/(150); epsilon init = 0.1
+        self.CalcEpsilon()
         
         if(self.nextVal >= 0): #TODO Document; rounding and negative explained
             self.nextVal = -self.nextVal - 0.15
@@ -149,6 +149,9 @@ class NodeInputEpsilon():
     def ForceRandom(self):
         if (self.nextVal == -1):
             self.nextVal = np.random.randint(0, self.n_action-1) #get a random adction idx within the range
+
+    def CalcEpsilon(self):
+        self.epsilon = np.clip(self.epsilon_init/(float(self.episode)/(self.decay)), 0, 1) #/(150); epsilon init = 0.1
 
         
         

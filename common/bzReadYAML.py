@@ -15,7 +15,14 @@ def readTrajectoryParams(src_path):
     with open(src_path, 'r') as ymlfile:
         params = yaml.load(ymlfile)
     	return [params['f_longitudinalDist'], params['f_lateralDist'], params['n_amount']]
+
+def readSavedTrajectoryParams(path):
+    with open(path, 'r') as ymlfile:
+        params = yaml.load(ymlfile)
+    	return [params['TRAJECTORY_PARAMETERS']['longitudinal_distance'], params['TRAJECTORY_PARAMETERS']['lateral_distance'], 
+             params['TRAJECTORY_PARAMETERS']['total_number_actions']]
     
+        
     
 #definition here so that it has to only be changed once across files
 def calcTrajectoryAmount(n_amount):
@@ -33,3 +40,25 @@ def readNengoHyperparams(src_path):
     with open(src_path, 'r') as ymlfile:
         params = yaml.load(ymlfile)
     return [params['f_epsilon_init'], params['f_decay_factor'], params['f_learning_rate'], params['a_scanTrack']]
+
+def readsavedNengoHyperparams(path):
+    with open(path, 'r') as ymlfile:
+        params = yaml.load(ymlfile)
+    return [params['LEARNING_PARAMETERS']['epsilon_init'], params['LEARNING_PARAMETERS']['decay'], 
+            params['LEARNING_PARAMETERS']['learning_rate'], params['scan_sensors']]
+
+def saveYAML(dictionary, path):
+        #save as yaml file
+        with open(path, 'w') as yamlfile:
+            yaml.dump(dictionary, yamlfile, default_flow_style=False)
+            
+def readConfig(path):
+    with open(path, 'r') as ymlfile:
+        params = yaml.load(ymlfile)
+    	return [params['data_log'], params['nengo_save'], params['nengo_load'], params['nengo_weigths_path']]
+    
+def readConfigSrc(src_path):
+    src_path = src_path[:-14] + "nengo_parameters/config.yaml"
+    with open(src_path, 'r') as ymlfile:
+        params = yaml.load(ymlfile)
+    	return [params['data_log'], params['nengo_save'], params['nengo_load'], params['nengo_weigths_path']]

@@ -147,7 +147,10 @@ class FollowTrajectory():
             
 
             if (f_distToEnd < 1.5): #check whether end of trajectory has been reached (within a margin)
-                self.needForAction_msg.data = True #indicate a new trajectory is needed
+                if(self.sen_trackpos <= 1):
+                    self.needForAction_msg.data = True #indicate a new trajectory is needed
+                else:
+                    print("\033[31m Oh oh. Restart and end of trajectory collision. Not running nengo \033[0m")
 
             self.pub_needTrajectory.publish(self.needForAction_msg) #send message whether new control is needed or not
             self.pub_ctrl.publish(self.msg_ctrl)            

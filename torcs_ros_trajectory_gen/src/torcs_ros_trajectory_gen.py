@@ -27,7 +27,7 @@ sys.path.append(cwd[:-24] + "common")
 cwd = cwd[:-24]
 #print(cwd[:-24] + "common")
 from bzVector import vec3, vec4 #2d and 3d vector definition; ERROR; roslaunch does not work with cwd
-from bzReadYAML import readTrajectoryParams, readVisualize, calcTrajectoryAmount
+from bzReadYAML import readTrajectoryParams, readVisualize, calcTrajectoryAmount, readConfigSrc, readSavedTrajectoryParams
 
 from bzGeometricFuncs import BaseLinkToTrajectory
 
@@ -36,6 +36,9 @@ class TrajectoryPublish():
     def __init__(self, cwd, frame_topic = "/tf", action_topic="/torcs_ros/notifications/ctrl_signal_action", 
                  selector_topic = "/torcs_ros/TrajectorySelector"):
         #### variables ####
+        [_, _, self.nengo_load, _] = readConfigSrc(cwd)
+        self.cwd = cwd
+        
         self.time = rospy.Time.now() #to be used as reference time when performing transformations; not working yet
         self.tf_trans = [] #a transformations translatory values received from tr TransformListener
         self.tf_rot = [] #a transformations rotatory values received from tr TransformListener
@@ -48,6 +51,7 @@ class TrajectoryPublish():
         self.b_initHandshakeSent = False
         #### parameters for trajectory generation ####
         [self.f_longitudinalDist, self.f_lateralDist, self.n_amount] = readTrajectoryParams(cwd)
+        self.Load()
         self.b_Visualize = readVisualize(cwd)
         #### message definitions #####
         self.trajectoryBaselink_msgs = [] #trajectories in baselink coordinates (static) //depreceated
@@ -268,6 +272,10 @@ class TrajectoryPublish():
             handshake_message = Bool()
             handshake_message.data = self.b_initHandshake
             self.pub_handshake.publish(self.b_initHandshake)
+            
+    def Load(self):
+        if (self.nengo_load):
+            [self.f_longitudinalDist, self.f_lateralDist, self.n_amount] = readSavedTrajectoryParams(self.cwd)
         
 if __name__ == '__main__':
     rospy.init_node('Trajectory_Publisher')
