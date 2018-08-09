@@ -15,11 +15,14 @@
     <!-- start torcs image publisher -->
     <include file="$(find torcs_img_publisher)/launch/torcs_img_publisher.xml"/>
 
+    <!-- start datalogger -->
+    <include file="$(find torcs_ros_datalogging)/launch/torcs_ros_datalogging.xml"/>
+
     <!-- start torcs trajectory generation -->
-    <include file="$(find torcs_ros_trajectory_gen)/launch/torcs_ros_trajectory_gen.xml"/>
+    <include file="$(find torcs_ros_trajectory_gen)/launch/torcs_ros_trajectory_gen.xml" unless="$(arg driver)"/>
 
     <!-- start torcs trajectory selection and nengo network -->
-    <include file="$(find torcs_ros_trajectory_selection)/launch/torcs_ros_trajectory_selection.xml"/>
+    <include file="$(find torcs_ros_trajectory_selection)/launch/torcs_ros_trajectory_selection.xml" unless="$(arg driver)"/>
 
     <!-- start torcs ros driver -->
     <include file="$(find torcs_ros_drive_ctrl)/launch/torcs_ros_drive_ctrl.xml"  if="$(arg driver)"/>

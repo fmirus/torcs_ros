@@ -70,6 +70,7 @@ class FollowTrajectory():
         self.race_start_time = rospy.Time.now()
         
         #### ensure all dependent nodes are up and running ####
+        rospy.wait_for_message("/torcs_ros/notifications/NengoInitialized", Bool)
         rospy.wait_for_message(frame_topic, TFMessage) #wait until frame is published
         rospy.wait_for_message(sensors_topic, TORCSSensors) #also wait until sensors are published 
  

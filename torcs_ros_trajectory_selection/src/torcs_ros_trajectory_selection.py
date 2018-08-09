@@ -40,7 +40,10 @@ class TrajectorySelector():
     def __init__(self, cwd, scan_topic = "/torcs_ros/scan_track", action_topic="/torcs_ros/notifications/ctrl_signal_action",
                  sensors_topic = "/torcs_ros/sensors_state", speed_topic="/torcs_ros/speed", 
                  ctrl_topic = "/torcs_ros/ctrl_cmd"):
+        
         cUserIn(cwd)
+        self.Notify("/torcs_ros/notifications/InputReceived")
+
         [_, self.nengo_save, self.nengo_load, self.nengo_path] = readConfigSrc(cwd)
         #### various parameters and variables ####
         #choose index of scanners to use
@@ -93,6 +96,7 @@ class TrajectorySelector():
 #        self.sim = nengo.Simulator(self.q_net_ass, progress_bar=True, optimize=True) #optimize trades in build for simulation time
         self.sim = nengo_dl.Simulator(self.q_net_ass, progress_bar=False, dt=self.sim_dt) #use nengo_dl simulator for reduced simulation time and parameter saving feature
         self.nengoLoadNet()
+        self.Notify("/torcs_ros/notifications/NengoInitialized")
         
         self.b_doSimulateOnce = True #flag used to prevent repeated/unneeded simulations
         self.idx_last_action = 0 #index of trajectory/action used last, saved for training
@@ -390,6 +394,13 @@ class TrajectorySelector():
         msg.data = data
         publisher.publish(msg)
             
+        
+    def Notify(self, topic):
+        pubInputReceived = rospy.Publisher(topic, Bool, queue_size=1)
+        for n in range(10):
+            pubInputReceived.publish(Bool())
+            rospy.sleep(0.5)
+
 if __name__ == "__main__":
     rospy.init_node("trajectory_selection")
     selector = TrajectorySelector(cwd)

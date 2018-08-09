@@ -280,7 +280,10 @@ class TrajectoryPublish():
         
 if __name__ == '__main__':
     rospy.init_node('Trajectory_Publisher')
+    rospy.wait_for_message("/torcs_ros/notifications/InputReceived", Bool)
     rospy.wait_for_message("/tf", TFMessage)
+
+
     trajectoryPublisher_ = TrajectoryPublish(cwd)
     while not rospy.is_shutdown():
         rospy.sleep(5)
