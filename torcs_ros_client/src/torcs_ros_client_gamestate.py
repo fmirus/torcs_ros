@@ -12,6 +12,7 @@ import os
 import subprocess
 
 from std_msgs.msg import Bool
+from std_msgs_stamped.msg import BoolStamped
 from torcs_msgs.msg import TORCSCtrl, TORCSSensors
 from nav_msgs.msg import Path
 from rosgraph_msgs.msg import Log
@@ -24,10 +25,10 @@ class GameState():
         self.b_beingRestarted = False #variable used for mutex callback, restart has priority
         self.b_beingPaused = False #variable used for mutex callback, restart has priority
         self.pub_ctrl = rospy.Publisher("/torcs_ros/ctrl_cmd", TORCSCtrl, queue_size=1) #publisher for meta restart
-        self.pub_isRestarted = rospy.Publisher("/torcs_ros/notifications/isRestarted", Bool, queue_size=1) #publisher for flag that torcs has been restarted
+        self.pub_isRestarted = rospy.Publisher("/torcs_ros/notifications/isRestarted", BoolStamped, queue_size=1) #publisher for flag that torcs has been restarted
         
-        self.sub_demandPause = rospy.Subscriber("/torcs_ros/notifications/demandPause", Bool, self.callback_pause, queue_size=1) #subscription for pause demands
-        self.sub_demandRestart = rospy.Subscriber("/torcs_ros/notifications/demandRestart", Bool, self.callback_restart, queue_size=1) #subscription for restart demands
+        self.sub_demandPause = rospy.Subscriber("/torcs_ros/notifications/demandPause", BoolStamped, self.callback_pause, queue_size=1) #subscription for pause demands
+        self.sub_demandRestart = rospy.Subscriber("/torcs_ros/notifications/demandRestart", BoolStamped, self.callback_restart, queue_size=1) #subscription for restart demands
         
         self.FNULL = open(os.devnull, 'w') #redirects output to not be published to console
 
@@ -90,7 +91,8 @@ class GameState():
         
         subprocess.Popen("roslaunch torcs_ros_client torcs_ros_client_only.xml", shell=True, stdout=self.FNULL, stderr=subprocess.STDOUT) #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
         #notify that game has been restarted
-        msg_restart = Bool() 
+        msg_restart = BoolStamped() 
+        msg_restart.header.stamp = rospy.Time.now()
         self.pub_isRestarted.publish(msg_restart)
         
         #unpause game after restart if it happens to be paused

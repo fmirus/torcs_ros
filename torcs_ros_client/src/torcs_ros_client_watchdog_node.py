@@ -13,6 +13,7 @@ import subprocess
 
 from torcs_msgs.msg import TORCSSensors, TORCSCtrl
 from rosgraph_msgs.msg import Log
+from std_msgs_stamped.msg import BoolStamped
 
 import sys
 import rospkg
@@ -36,12 +37,12 @@ class Watchdog():
         self.n_counterComp = 5
         self.meta = 0
 
-        self.pub_demandPause = rospy.Publisher("/torcs_ros/notifications/demandPause", Bool,queue_size = 1)
+        self.pub_demandPause = rospy.Publisher("/torcs_ros/notifications/demandPause", BoolStamped,queue_size = 1)
             
         self.sub_sensors = rospy.Subscriber(sensors_topic, TORCSSensors, callback = self.callback)
         self.sub_log = rospy.Subscriber("/rosout", Log, callback =self.log_callback)
         self.sub_restart = rospy.Subscriber("/torcs_ros/notifications/restart_process", Bool, callback=self.restart_callback)
-        self.sub_nengo = rospy.Subscriber("/torcs_ros/notifications/nengoIsRunning", Bool, callback=self.nengo_callback)
+        self.sub_nengo = rospy.Subscriber("/torcs_ros/notifications/nengoIsRunning", BoolStamped, callback=self.nengo_callback)
         self.sub_cmd = rospy.Subscriber("/torcs_ros/ctrl_cmd", TORCSCtrl, callback=self.ctrl_callback)
 
     def callback(self, msg):
@@ -60,11 +61,14 @@ class Watchdog():
                             print("\033[96mWatchdog is wanting to unpause TORCS \033[0m")
     #                        rospy.sleep(5) #give enough time to manually stop this process
 #                            subprocess.call('xdotool search --name "torcs-bin" key p', shell=True) 
-                            self.pub_demandPause.publish(Bool())
+                            msg = BoolStamped()
+                            msg.header.stamp = rospy.Time.now()
+                            self.pub_demandPause.publish(msg)
                             self.n_counterPause = 0
                         elif(self.n_counterPause >= 30):
                             print("\033[96mWatchdog is wanting to unpause TORCS \033[0m")
-                            self.pub_demandPause.publish(Bool())
+                            msg.header.stamp = rospy.Time.now()
+                            self.pub_demandPause.publish(msg)
                             self.n_counterPause = 0
                     else:
                         self.n_counterPause = 0

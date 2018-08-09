@@ -18,7 +18,7 @@ from tf2_msgs.msg import TFMessage
 from nav_msgs.msg import Path
 from torcs_msgs.msg import TORCSCtrl, TORCSSensors
 from std_msgs.msg import Bool
-
+from std_msgs_stamped.msg import BoolStamped
 #add common folder to path; have to replace this later with rospkg when launched with roslaunch 
 import os
 import sys
@@ -58,8 +58,8 @@ class FollowTrajectory():
         self.ctrl_brake = 0 #desired brake signal [fixed at 0]
         self.ctrl_steering = 0 #desired steering [calculated from trajectory]
         self.ctrl_gear = 0 #desired gear [calculated from look up table]
-        self.needForAction_msg = Bool() #message that indicates that end of a trajectory has been reached
-        self.msg_restart = Bool()
+        self.needForAction_msg = BoolStamped() #message that indicates that end of a trajectory has been reached
+        self.msg_restart = BoolStamped()
         self.msg_ctrl = TORCSCtrl() #message container
 
         #### calculation parameters and variables #### 
@@ -75,8 +75,8 @@ class FollowTrajectory():
  
         #### publications ####
         self.pub_ctrl = rospy.Publisher(ctrl_topic, TORCSCtrl, queue_size=10) #publish control commands
-        self.pub_needTrajectory = rospy.Publisher("/torcs_ros/notifications/ctrl_signal_action", Bool, queue_size=1) #publish a control signal that indicates that a  new trajectory is needed
-        self.pub_demandRestart = rospy.Publisher("/torcs_ros/notifications/demandRestart", Bool, queue_size = 1)
+        self.pub_needTrajectory = rospy.Publisher("/torcs_ros/notifications/ctrl_signal_action", BoolStamped, queue_size=1) #publish a control signal that indicates that a  new trajectory is needed
+        self.pub_demandRestart = rospy.Publisher("/torcs_ros/notifications/demandRestart", BoolStamped, queue_size = 1)
 
         #### subscriptions ####
         self.sub_trajectory = rospy.Subscriber(trajectory_topic, Path, self.trajectory_callback) #subscribe to selected trajectory in world frame
@@ -137,10 +137,7 @@ class FollowTrajectory():
             self.trajectory_rot.Set(self.trajectory.poses[idx_poseHeading]) #Convert msg type to vec4() quatenrion
             f_deltaHeading = self.ComputeAngleDifference(self.ros_rot, self.trajectory_rot) #difference in desired orientation to current baselink orientation
                 
-            #dist to trajectory has to have a sign
             self.ctrl_steering = (f_deltaHeading + f_distToTraj*self.param_kappa)/self.param_steerLock
-            
-
             self.RPMandAccel();
             self.PublishCtrlMessage();
 
@@ -151,13 +148,14 @@ class FollowTrajectory():
                     self.needForAction_msg.data = True #indicate a new trajectory is needed
                 else:
                     print("\033[31m Oh oh. Restart and end of trajectory collision. Not running nengo \033[0m")
-
+            self.needForAction_msg.header.stamp = rospy.Time.now()
             self.pub_needTrajectory.publish(self.needForAction_msg) #send message whether new control is needed or not
             self.pub_ctrl.publish(self.msg_ctrl)            
             self.CheckForOutOfTrack() #restart server if vehicle is of track
 
         else: #no trajectory message has been received yet
             self.needForAction_msg.data = True #indicate a new trajectory is needed
+            self.needForAction_msg.header.stamp = rospy.Time.now()
             self.pub_needTrajectory.publish(self.needForAction_msg) #send message that new trajectory is needed
             
     def ControlClassic(self):
@@ -193,8 +191,6 @@ class FollowTrajectory():
     def CheckForOutOfTrack(self):
         b_Restart = False
         if (abs(self.sen_trackpos) > 1): #if vehicle is off track or last point is , restart 
-#            dt = rospy.Time.now().secs - self.race_start_time.secs #calculate whether race has just started
-#            if (dt > 5): #do not restart if race has just started
             if(self.sen_laptime > 5):
                 b_Restart = True 
                 print("\033[96mClient node is being restarted as vehicle was off track \033[0m") 
@@ -208,28 +204,9 @@ class FollowTrajectory():
 
         if b_Restart == True:
             self.pub_demandRestart.publish(self.msg_restart)
-#            rospy.sleep(2) #wait to ensure game is unpaused DEBUG, can be done nicer
-#            msg_ctrl = TORCSCtrl() #message container
-#            msg_ctrl.meta = 1 #set restart flag
-#            #ensure last sent control command is no movement
-#            msg_ctrl.accel = 0 
-#            msg_ctrl.steering = 0
-#            msg_ctrl.brake = 1
-#            self.pub_ctrl.publish(msg_ctrl) #demand restart
-#            
             self.trajectory = Path() #reset selected trajectory to be empty
-#            os.system("rosnode kill /torcs_ros/torcs_ros_client_node") #kills client node with terminal command
-##            os.system("rosnode kill /torcs_ros/trajectory_ctrl")
-#            rospy.sleep(1.5) #give the system enough time to have killed of node and calculate reward
-##            os.system("roslaunch torcs_ros_client torcs_ros_client_ns.xml") #relaunch client node with roslaunch command when not in namespace yet (if called manually from console)
-#            os.system("roslaunch torcs_ros_client torcs_ros_client_only.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
-##            os.system("roslaunch torcs_ros_trajectory_ctrl torcs_ros_trajectory_ctrl.xml") #relaunch client node with roslaunch command when in namespace (if launched with bringup .launch file)
-            rospy.wait_for_message("/torcs_ros/notifications/isRestarted", Bool)
+            rospy.wait_for_message("/torcs_ros/notifications/isRestarted", BoolStamped)
             rospy.wait_for_message(self.sensors_topic, TORCSSensors) #wait for a message from client node to ensure it has restarted
-
-            #notify generation node that new trajectory has to be selected as game has been resarted
-#            self.needForAction_msg.data = True  
-#            self.pub_needTrajectory.publish(self.needForAction_msg)
             self.race_start_time = rospy.Time.now() #new race started, reinitialize time
 
 

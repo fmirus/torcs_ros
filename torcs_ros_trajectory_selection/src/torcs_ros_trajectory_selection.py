@@ -15,9 +15,9 @@ import subprocess
 
 from geometry_msgs.msg import TwistStamped
 from sensor_msgs.msg import LaserScan
-from std_msgs.msg import Bool, Int8
+from std_msgs.msg import Bool, Int8, Float32
 from torcs_msgs.msg import TORCSSensors, TORCSCtrl
-
+from std_msgs_stamped.msg import Int8Stamped, Float32Stamped, BoolStamped
 import nengo_nets_qnet_associative as snn
 
 import sys
@@ -99,16 +99,18 @@ class TrajectorySelector():
         self.idx_next_action = 0 #index of trajectory/action to be used next
 
         #### publisher ####
-        self.msg_pause = Bool() #message used to demand gamestate node to pause game
-        self.msg_nengo = Bool() #message used to notify other nodes that a nengo calculation is going on and the game should not be unpaused meanwhile
+        self.msg_pause = BoolStamped() #message used to demand gamestate node to pause game
+        self.msg_nengo = BoolStamped() #message used to notify other nodes that a nengo calculation is going on and the game should not be unpaused meanwhile
 
-        self.pub_trajectorySelection = rospy.Publisher("/torcs_ros/TrajectorySelector", Int8, queue_size=1) #negative values are parsed when no trajectory should be selected
-        self.pub_demandPause = rospy.Publisher("/torcs_ros/notifications/demandPause", Bool,queue_size = 1) #a pause request is sent with every publish, independent of data
-        self.pub_nengoRunning = rospy.Publisher("/torcs_ros/notifications/nengoIsRunning", Bool, queue_size=1) #last published value is current calculation status (true: calculation running, false:no calculation)
+        self.pub_trajectorySelection = rospy.Publisher("/torcs_ros/TrajectorySelector", Int8Stamped, queue_size=1) #negative values are parsed when no trajectory should be selected
+        self.pub_demandPause = rospy.Publisher("/torcs_ros/notifications/demandPause", BoolStamped,queue_size = 1) #a pause request is sent with every publish, independent of data
+        self.pub_nengoRunning = rospy.Publisher("/torcs_ros/notifications/nengoIsRunning", BoolStamped, queue_size=1) #last published value is current calculation status (true: calculation running, false:no calculation)
+        self.pub_reward = rospy.Publisher("/torcs_ros/logging/reward", Float32Stamped, queue_size=1)
+        
         
         ##### subscribers #####
         self.sub_scanTrack = rospy.Subscriber(scan_topic, LaserScan, self.scan_callback) #get laser scanners
-        self.sub_needForAction = rospy.Subscriber(action_topic, Bool, self.needForAction_callback) #get notification that new action idx is needed 
+        self.sub_needForAction = rospy.Subscriber(action_topic, BoolStamped, self.needForAction_callback) #get notification that new action idx is needed 
         self.sub_sensors = rospy.Subscriber(sensors_topic, TORCSSensors, self.sensors_callback) #get sensor values
         self.sub_speed = rospy.Subscriber(speed_topic, TwistStamped, self.speed_callback) #get speed values
         self.sub_handshake = rospy.Subscriber("/torcs_ros/gen2selHandshake", Bool, self.handshake_callback) #//depreceated; ensures that generation and selection nodes are both up
@@ -135,9 +137,11 @@ class TrajectorySelector():
             if (self.b_doSimulateOnce or self.n_needCounter >= 30): #ensures simulation is only performed once
                 if(self.n_needCounter >= 30):
                     print("\033[31mAction still requested but hasn't been sent in a long time. Repeating simulation and publish.\033[0m")
+                self.msg_pause.header.stamp = rospy.Time.now()
                 self.pub_demandPause.publish(self.msg_pause) #demand pause in order to perform simulation
                 self.msg_nengo.data = True
-                self.pub_nengoRunning.publish(self.msg_nengo.data) #inform that a calculation is in progress and game should remain paused
+                self.msg_nengo.header.stamp = rospy.Time.now()
+                self.pub_nengoRunning.publish(self.msg_nengo) #inform that a calculation is in progress and game should remain paused
 
                 self.calculateReward() #calculate the last action's reward
             
@@ -167,21 +171,25 @@ class TrajectorySelector():
                     self.idx_next_action = self.epsilon_inputer.nextVal
                 self.epsilon_inputer.nextVal = self.idx_next_action #Reset this value, takes the argmax value instead of the -1; needed for training as it would otherwise nout fix that value
                 ###select previously run output and resimulate in off-time to calculate next output
-                msg_sel = Int8()
+                msg_sel = Int8Stamped()
                 msg_sel.data = self.idx_next_action
+                msg_sel.header.stamp = rospy.Time.now()
                 self.pub_trajectorySelection.publish(msg_sel) #publish trajectory calculated in the last step
-
+                self.msg_pause.header.stamp = rospy.Time.now()
                 self.pub_demandPause.publish(self.msg_pause) #demand game unpause
                 self.msg_nengo.data = False
-                self.pub_nengoRunning.publish(self.msg_nengo.data) #notify that nengo is not calculating anymore
+                self.msg_nengo.header.stamp = rospy.Time.now()
+                self.pub_nengoRunning.publish(self.msg_nengo) #notify that nengo is not calculating anymore
                 self.b_doSimulateOnce = False #don't simualte again until this trajectory has been published (which means that the action signal will turn to False)
                 self.n_needCounter = 0
         else:
             self.b_doSimulateOnce = True #action signal is not set anymore, on next true we need to perform another simulation
         if (self.b_handshake == False): 
 #            print("no handshake")
-            msg_sel = Int8()
+            msg_sel = Int8Stamped()
             msg_sel.data = self.idx_next_action
+            msg_sel.header.stamp = rospy.Time.now()
+
             self.pub_trajectorySelection.publish(msg_sel)
             ##reset do once flag, a new trajectory has been published
 
@@ -221,15 +229,19 @@ class TrajectorySelector():
                 self.b_hasBeenTrained = True 
 #                print("A restart has been requested") 
                 self.reward = -1 #negative reward value
+                self.msg_pause.header.stamp = rospy.Time.now()
                 self.pub_demandPause.publish(self.msg_pause) #demand game pause
                 self.msg_nengo.data = True
-                self.pub_nengoRunning.publish(self.msg_nengo.data) #notify that nengo is calculating
+                self.msg_nengo.header.stamp = rospy.Time.now()
+                self.pub_nengoRunning.publish(self.msg_nengo) #notify that nengo is calculating
                 self.trainOnReward() #train network with negative reward
                 #force first action to always be random to avoid having identical starting situations repeatedly
                 self.epsilon_inputer.ForceRandom() 
                 self.idx_next_action = self.epsilon_inputer.nextVal
                 self.msg_nengo.data = False
-                self.pub_nengoRunning.publish(self.msg_nengo.data) #notify that nengo is not calculating anymore
+                self.msg_nengo.header.stamp = rospy.Time.now()
+                self.pub_nengoRunning.publish(self.msg_nengo) #notify that nengo is not calculating anymore
+                self.msg_pause.header.stamp = rospy.Time.now()
                 self.pub_demandPause.publish(self.msg_pause) #demand game unpause
                 self.reward = np.nan
         else:
@@ -288,6 +300,7 @@ class TrajectorySelector():
             try:
                 self.sim.run(0.5,  progress_bar = False) #train
                 self.training_logger.PrintTraining(self.reward, self.idx_next_action)
+                self.pubStamped(self.pub_reward, self.reward, Float32Stamped())
             except:
                 print("\033[31mIDX ERROR!: Next Val was "+ str(self.epsilon_inputer.nextVal) +"\033[0m")
             self.epsilon_inputer.AfterTraining()
@@ -372,6 +385,11 @@ class TrajectorySelector():
             
             [self.f_epsilon_init, self.f_decay, self.f_learning_rate, self.a_selectScanTrack] = readsavedNengoHyperparams(path +"/" +fileDesc)
               
+    def pubStamped(self, publisher, data, msg):
+        msg.header.stamp = rospy.Time.now()
+        msg.data = data
+        publisher.publish(msg)
+            
 if __name__ == "__main__":
     rospy.init_node("trajectory_selection")
     selector = TrajectorySelector(cwd)

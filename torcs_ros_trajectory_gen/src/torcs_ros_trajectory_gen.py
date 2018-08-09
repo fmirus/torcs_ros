@@ -16,6 +16,7 @@ from visualization_msgs.msg import Marker
 from tf2_msgs.msg import TFMessage
 from nav_msgs.msg import Path
 from std_msgs.msg import Bool, Int8
+from std_msgs_stamped.msg import BoolStamped, Int8Stamped
 
 import Trajectory_generation
 import copy
@@ -83,8 +84,8 @@ class TrajectoryPublish():
         #### subscribers ####
         self.sub_frame = rospy.Subscriber(frame_topic, TFMessage, self.sub_frame_callback, queue_size=1) #a subscriber that manually subscribes to the published frames
 #        self.sub_needForAction = rospy.Subscriber(action_topic, Bool, self.sub_needForAction_callback, queue_size=1) #receives message whether a new trajectory is needed
-        self.sub_trajectorySelector = rospy.Subscriber(selector_topic, Int8, self.sub_trajectorySelector_callback, queue_size=1) #receives a trajectory index whenever a new trajectory is needed and selected
-        self.sub_restart = rospy.Subscriber("/torcs_ros/notifications/IsRestarted", Bool, self.restart_callback) #x
+        self.sub_trajectorySelector = rospy.Subscriber(selector_topic, Int8Stamped, self.sub_trajectorySelector_callback, queue_size=1) #receives a trajectory index whenever a new trajectory is needed and selected
+        self.sub_restart = rospy.Subscriber("/torcs_ros/notifications/IsRestarted", BoolStamped, self.restart_callback) #x
         
     def restart_callback(self, message): #x
         self.b_TrajectoryNeeded = False; #classic controller first
