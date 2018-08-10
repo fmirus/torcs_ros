@@ -37,7 +37,7 @@ class TrajectoryPublish():
     def __init__(self, cwd, frame_topic = "/tf", action_topic="/torcs_ros/notifications/ctrl_signal_action", 
                  selector_topic = "/torcs_ros/TrajectorySelector"):
         #### variables ####
-        [_, _, self.nengo_load, _] = readConfigSrc(cwd)
+        [_, _, self.nengo_load, _, self.save_directory] = readConfigSrc(cwd)
         self.cwd = cwd
         
         self.time = rospy.Time.now() #to be used as reference time when performing transformations; not working yet
@@ -276,7 +276,7 @@ class TrajectoryPublish():
             
     def Load(self):
         if (self.nengo_load):
-            [self.f_longitudinalDist, self.f_lateralDist, self.n_amount] = readSavedTrajectoryParams(self.cwd)
+            [self.f_longitudinalDist, self.f_lateralDist, self.n_amount] = readSavedTrajectoryParams(self.save_directory +self.save_directory[self.save_directory.rfind("/"):] + "_Description.yaml")
         
 if __name__ == '__main__':
     rospy.init_node('Trajectory_Publisher')

@@ -60,6 +60,7 @@ class GameState():
         n_iter = 0 #flag for different case handling
         #publish meta restart command until it has been processed by client (has to be repeated in case any message is chocked)
         while(True):
+            msg_ctrl.header.stamp = rospy.Time.now()
             self.pub_ctrl.publish(msg_ctrl) #demand restart from client node
             try: 
                 #check whether the restart has been engaged by client; timeout ensures that if the client is not running the except clause is hight

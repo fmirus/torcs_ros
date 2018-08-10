@@ -9,7 +9,7 @@ Created on Thu Aug  9 08:16:13 2018
 from enum import Enum
 from bzReadYAML import readTrajectoryParams, saveYAML, readNengoHyperparams, readConfig
 import os
-
+import datetime
 
 
 class eUserIn(Enum):
@@ -130,13 +130,17 @@ class cUserIn:
             eNengoSave = self.CompareWithDefault(eNengoSave.value, eUserIn.true.value)
             eNengoLoad = self.CompareWithDefault(eNengoLoad.value, eUserIn.false.value)
         else:
-            [eDataLogger_last, eNengoSave_last, eNengoLoad_last, pathNengo_last] = readConfig(path)
+            [eDataLogger_last, eNengoSave_last, eNengoLoad_last, pathNengo_last, save_directory] = readConfig(path)
             eDatalogger = self.CompareWithDefault(eDatalogger.value, eDataLogger_last)
             eNengoSave = self.CompareWithDefault(eNengoSave.value, eNengoSave_last)
             eNengoLoad = self.CompareWithDefault(eNengoLoad.value, eNengoLoad_last)
             if(pathNengoParam == ''):
                 pathNengoParam = pathNengo_last
-        data = dict(data_log = eDatalogger, nengo_save = eNengoSave, nengo_load = eNengoLoad, nengo_weigths_path = pathNengoParam)
+        if (eNengoLoad == True):
+            save_directory = pathNengoParam[:pathNengoParam.rfind("/")]
+        else:
+            save_directory = self.GetPrefix(eNengoSave, eDatalogger)
+        data = dict(data_log = eDatalogger, nengo_save = eNengoSave, nengo_load = eNengoLoad, nengo_weigths_path = pathNengoParam, directory = save_directory)
         saveYAML(data, path)
 
             
@@ -156,6 +160,9 @@ class cUserIn:
         for (folder, nCounter) in zip(folders, range(len(folders))):
             print("\033[96m%i\033[0m: "  % nCounter+ folder)
         folderSel = input()
+        if (folderSel >= len(folders)):
+            print("\033[96mInvalid\033[0m input. ")
+            folderSel = input()
         if (folderSel == -1):
             files =  os.listdir(path + "/" + folders[-1])
             files = [fileT for fileT in files if "meta" in fileT]
@@ -171,7 +178,27 @@ class cUserIn:
         for (fileT, nCounter) in zip(files, range(len(files))):
             print("\033[96m%i\033[0m: "  % nCounter + fileT)
         fileSel = input()
+        if (fileSel >= len(files)):
+            print("\033[96mInvalid\033[0m input. ")
+            fileSel = input()
         return (path+"/"+folders[folderSel] + "/" + files[fileSel])
 
+    def GetPrefix(self, eNengoSave, eDatalogger):
+        self.today = datetime.datetime.today()
+        self.year = str(self.today.year)[2:]
+        self.month = str(self.today.month)
+        self.day = str(self.today.day)
+        if (self.today.month < 10):
+            self.month = '0' + self.month
+        if (self.today.day < 10):
+            self.day = '0' + self.day
+            
+        path_name = self.directory + "/D-" + self.year + "-" + self.month + "-" + str(self.day) + "P-0"
+        while(os.path.isdir(path_name)):
+            path_name = path_name[:-1] + str(int(path_name[-1]) +1)
+#        path_name += string
+        if(eNengoSave or eDatalogger):
+            os.mkdir(path_name)
+        return path_name
             
 #[eNengoSave, bSkipAll] = GetInput("Do you want to save the nengo paramaters:", False, "save", "nengo")

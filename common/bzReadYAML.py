@@ -55,10 +55,10 @@ def saveYAML(dictionary, path):
 def readConfig(path):
     with open(path, 'r') as ymlfile:
         params = yaml.load(ymlfile)
-    	return [params['data_log'], params['nengo_save'], params['nengo_load'], params['nengo_weigths_path']]
+    	return [params['data_log'], params['nengo_save'], params['nengo_load'], params['nengo_weigths_path'], params['directory']]
     
 def readConfigSrc(src_path):
     src_path = src_path[:-14] + "nengo_parameters/config.yaml"
     with open(src_path, 'r') as ymlfile:
         params = yaml.load(ymlfile)
-    	return [params['data_log'], params['nengo_save'], params['nengo_load'], params['nengo_weigths_path']]
+    	return [params['data_log'], params['nengo_save'], params['nengo_load'], params['nengo_weigths_path'], params['directory']]

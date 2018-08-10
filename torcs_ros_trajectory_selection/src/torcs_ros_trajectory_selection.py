@@ -44,7 +44,7 @@ class TrajectorySelector():
         cUserIn(cwd)
         self.Notify("/torcs_ros/notifications/InputReceived")
 
-        [_, self.nengo_save, self.nengo_load, self.nengo_path] = readConfigSrc(cwd)
+        [_, self.nengo_save, self.nengo_load, self.nengo_path, self.directory] = readConfigSrc(cwd)
         #### various parameters and variables ####
         #choose index of scanners to use
         #angle min/max: +-1.57; increment 0.1653; instantenous, range: 200 m
@@ -193,7 +193,6 @@ class TrajectorySelector():
             msg_sel = Int8Stamped()
             msg_sel.data = self.idx_next_action
             msg_sel.header.stamp = rospy.Time.now()
-
             self.pub_trajectorySelection.publish(msg_sel)
             ##reset do once flag, a new trajectory has been published
 
@@ -280,6 +279,7 @@ class TrajectorySelector():
                 self.reward = (f_distTravelled/self.param_f_longitudinalDist) / (f_timeNeeded/self.param_f_minTime) #maybe pow 2
                 self.reward *= self.reward #scale reward for more distinction between all trajectories
                 self.reward += ((1-abs(self.f_trackPos))*2-(1-abs(self.f_trackPosStart)))/2 # + (1-abs(self.f_angle)/2) or delta trackpos and delta angle (only in associative) 
+                self.reward += (1-abs(self.f_angle))/2
             self.checkRewardValidity() #ensure no weird rewards have been calculated
             self.trainOnReward() #traing
         else:
@@ -320,10 +320,10 @@ class TrajectorySelector():
             if not os.path.isdir(dir_name): #create directory if it doesnt exist yet
                 os.mkdir(dir_name)
             if ((self.epsilon_inputer.episode-2) == 0): #on first episode
-                self.determinePrefix(dir_name) #create a unique prefix number for trainings on the same date
+#                self.determinePrefix(dir_name) #create a unique prefix number for trainings on the same date
                 self.saveDescription() #save a yaml description file including the trainings hyperparameters
             #name file
-            path_name = self.directory + "/D-" + str(self.year) + "-" + str(self.month) + "-" + str(self.day) + "_E-"+ str(int(self.epsilon_inputer.episode)-2)
+            path_name = self.directory +  "/"+ self.directory[self.directory.rfind("/")+1:] + "_E-"+ str(int(self.epsilon_inputer.episode)-2)
             print("\033[96mEpisode " + str(int(self.epsilon_inputer.episode-2)) + " reached. Saving parameters to " + path_name + "\033[0m") #notify user of saving
             self.sim.save_params(path_name) #call nengo_dl save function
 #            self.sim.save_params(self.directory) #call nengo_dl save function
@@ -345,7 +345,7 @@ class TrajectorySelector():
                         )
                 )
             
-        path_name = self.directory + "/D-" + str(self.year) + "-" + str(self.month) + "-" + str(self.day) + "_Description.yaml"
+        path_name = self.directory + "/"+ self.directory[self.directory.rfind("/")+1:]  + "_Description.yaml"
         #save as yaml file
         with open(path_name, 'w') as yamlfile:
             yaml.dump(descr, yamlfile, default_flow_style=False)
@@ -370,7 +370,7 @@ class TrajectorySelector():
         
     def nengoLoadNet(self):
         if (self.nengo_load):
-            print("\033[96m Loading nengo parameters as defined in config from: " + self.nengo_path + "\033[0m")
+            print("\033[96mLoading nengo parameters as defined in config from: " + self.nengo_path + "\033[0m")
             self.sim.load_params(self.nengo_path)
             path = self.nengo_path
             episode = ''
