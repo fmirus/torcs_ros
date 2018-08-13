@@ -216,7 +216,8 @@ class NodeErrorScaling():
         self.nNumber = 0.0
         self.f_maxDistance = 0.001
         self.error_decay = error_decay
-        
+        self.distance_array = []
+        self.moving_size = 5
     def __call__(self, t):
         return self.scale
     
@@ -228,3 +229,10 @@ class NodeErrorScaling():
             self.scale = np.clip(f_DistanceScale / (self.nNumber/self.error_decay), 0, 1)
         else:
             self.scale = np.clip(f_DistanceScale, 0, 1.1)
+        print("The error scaling for this sample is: %.2f" % self.scale)
+
+    def OnRestart(self, f_newMax):
+        if(len(self.distance_array) == self.moving_size):
+            self.distance_array = self.distance_array[1:]
+        self.distance_array.append(f_newMax)
+        self.f_maxDistance = sum(self.distance_array)/len(self.distance_array)

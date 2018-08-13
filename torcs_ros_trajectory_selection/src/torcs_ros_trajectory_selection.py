@@ -81,7 +81,7 @@ class TrajectorySelector():
         self.f_trackPosStart = 0
         self.b_hasBeenTrained = False
         self.b_OmitNextReward = False
-        
+        self.f_MaxDist = 0
         #### nengo net and parameters #### 
         self.nengoLoadParam()
         self.sim_dt = 0.001 #default value
@@ -90,7 +90,7 @@ class TrajectorySelector():
         self.time_inputer = NodeInputStartTime() #object passed to nengo net with current simulations starting time as input
         self.epsilon_inputer = NodeInputEpsilon(self.param_n_action, self.f_epsilon_init, self.f_decay) #object passed to nengo implementing epsilon greedy exploration
         self.inhibit_inputer = NodeInhibitAlLTraining() #object passed to nengo to inhibit learning net
-        self.errorScale_inputer = NodeErrorScaling(1000)
+        self.errorScale_inputer = NodeErrorScaling(500)
         self.output_prober = NodeOutputProber(self.param_n_action) #naction currently hardocded, should be a global ros parameter
         self.training_logger = NodeLogTraining(self.sim_dt)
         self.q_net_ass = snn.qnet_associative(False, signal=self.state_inputer, i_reward=self.reward_inputer, i_time=self.time_inputer,
@@ -215,7 +215,8 @@ class TrajectorySelector():
             self.f_lapTimeStart = -(self.f_lapTimePrevious - self.f_lapTimeStart)
         if(self.f_distCurrent*10 < self.f_distStart): #*10 ensures condition to only hold at lap change 
             self.f_distStart = -(self.f_distPrevious - self.f_distStart)
-            
+           
+        self.f_MaxDist = max(self.f_MaxDist, self.f_distCurrent)
         
     def speed_callback(self, msg_speed):
         self.f_speedXCurrent = msg_speed.twist.linear.x
@@ -227,6 +228,9 @@ class TrajectorySelector():
     def ctrl_callback(self, msg_ctrl):
         self.b_handshake = True
         if(msg_ctrl.meta == 1):
+            
+            self.errorScale_inputer.OnRestart(self.f_MaxDist)
+            self.f_MaxDist = 0
             #Do not reward next action, as we have to achieve 30 km/h first
             self.b_OmitNextReward = True
             self.b_doSimulateOnce = True
@@ -237,7 +241,7 @@ class TrajectorySelector():
             if(self.b_hasBeenTrained == False): #this flag ensures that the training is performed only once per restart
                 self.b_hasBeenTrained = True 
 #                print("A restart has been requested") 
-                self.reward = -1 #negative reward value
+                self.reward = 0 #negative reward value
                 self.msg_pause.header.stamp = rospy.Time.now()
                 self.pub_demandPause.publish(self.msg_pause) #demand game pause
                 self.msg_nengo.data = True
@@ -387,6 +391,7 @@ class TrajectorySelector():
                 path = path[:-1]
             self.epsilon_inputer.episode = int(episode) + 2
             self.epsilon_inputer.CalcEpsilon()
+            self.errorScale_inputer.nNumber = float(int(episode) + 2.0)
 
     def nengoLoadParam(self):
         if(self.nengo_load):

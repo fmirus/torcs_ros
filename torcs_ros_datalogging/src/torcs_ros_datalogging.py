@@ -67,7 +67,7 @@ class DataLogger:
         #### callback functions ####
         self.synchronizer.registerCallback(self.callback_action)
         self.synchronizer.registerCallback(self.callback_laser)
-        
+        self.write_ctrl = False
         
     def callback_action(self, msg_action, msg_laser):
         self.data['ACTION_DATA']['action'] = msg_action.data
@@ -98,7 +98,7 @@ class DataLogger:
         self.data['SENSOR_DATA']['distance'] = msg.distFromStart
         self.headerToDict('SENSOR_DATA', msg.header)
         self.writeData('SENSOR_DATA')
-        rospy.Rate(1)
+        rospy.sleep(1)
 
 
 
@@ -108,7 +108,7 @@ class DataLogger:
         self.data['GLOBAL_DATA']['posY'] = msg.pose.position.y
         self.headerToDict('GLOBAL_DATA', msg.header)
         self.writeData('GLOBAL_DATA')
-        rospy.Rate(1)
+        rospy.sleep(0.2)
 
 
 
@@ -117,14 +117,17 @@ class DataLogger:
         self.data['SPEED_DATA']['speedX'] = msg.twist.linear.x
         self.headerToDict('SPEED_DATA', msg.header)
         self.writeData('SPEED_DATA')
-        rospy.Rate(1)
+        rospy.sleep(1)
 
 
     def callback_ctrl(self, msg):
-        if (msg.meta == 1):
+        if (msg.meta == 1 and self.write_ctrl == True):
             self.data['CTRL_DATA']['meta'] = msg.meta
             self.headerToDict('CTRL_DATA', msg.header)
             self.writeData('CTRL_DATA')
+            self.write_ctrl = False
+        else:
+            self.write_ctrl = True
 
 
     def headerToDict(self, key1, header):

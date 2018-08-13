@@ -65,7 +65,7 @@ def create_action_selection_net(b_Direct, signal, i_reward, i_time, i_epsilon, i
         net.eGreedyIn = nengo.Node(output=i_epsilon, label='epsilon greedy input')
         
         #Create an ensemble, each dimension encoding one rangefinder sensor
-        net.QEnsemble_In = nengo.Ensemble(n_neurons = 100*n_dim, dimensions = n_dim, neuron_type=param_neuron, label='input encoding', radius=1,
+        net.QEnsemble_In = nengo.Ensemble(n_neurons = 500*n_dim, dimensions = n_dim, neuron_type=param_neuron, label='input encoding', radius=1,
                                           intercepts=nengo.dists.Uniform(0, 1)) 
         nengo.Connection(net.input, net.QEnsemble_In) #connect input to representation
 
@@ -114,7 +114,7 @@ def connect_to_error_net_associative(net, n_action, tau_mid, tau_long):
         [nengo.Connection(net.QEnsembleArray_Out.output[n], net.errorA_net.Error.input[n], transform=1) for n in range(n_action)] 
         return net
 nCount = 0
-def create_learning_net(net, i_time, i_inhibit, i_trainingProbe, i_errorScale, n_action, tau_mid, tau_long):
+def create_learning_net(net, i_time, i_inhibit, i_trainingProbe, i_errorScale, n_action, i_radius, tau_mid, tau_long):
     with net:
         with nengo.Network(label='learning network') as net.learning_net: 
             def func_afterT(t, x):
@@ -135,7 +135,7 @@ def create_learning_net(net, i_time, i_inhibit, i_trainingProbe, i_errorScale, n
                 return retVec
                 
             net.learning_net.Delay = nengo.networks.EnsembleArray(n_neurons = 100, n_ensembles=n_action, ens_dimensions=1, label='Delayed and inhibited error',
-                                                                  intercepts=nengo.dists.Uniform(-1, 1))
+                                                                  intercepts=nengo.dists.Uniform(-1, 1), radius=i_radius)
             net.learning_net.tStart = nengo.Node(output=i_time, size_in = None, size_out=1)
             net.learning_net.LearnAfterT = nengo.Node(output=func_afterT, size_in = n_action+1, size_out = n_action)
     
