@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 
 
-    
+prev_idx = 0   
     
 def create_action_selection_net(b_Direct, signal, i_reward, i_time, i_epsilon, i_inhibit, i_output, n_action, i_radius, tau_mid, tau_long, f_learningRate=0.001 ,label=''):
     param_neuron = nengo.neurons.LIF()
@@ -28,6 +28,7 @@ def create_action_selection_net(b_Direct, signal, i_reward, i_time, i_epsilon, i
     with nengo.Network(label=label) as net: 
         #action selection with decaying epsilon exploration
         def func_epsilonMax(t, x):
+            global prev_idx;
 #            if x[-1] >= epsilon/(t/1000): 
             if x[-1] < 0: #mark for 
                 if(x[-1] > -1.1 and x[-1] < -0.9):
@@ -39,8 +40,13 @@ def create_action_selection_net(b_Direct, signal, i_reward, i_time, i_epsilon, i
             retVec = np.zeros(n_action)
             try:
                 retVec[idx] = 1 
+                prev_idx = idx
             except:
                 print("\033[32m  x[-1] val: %.2f | Error index: %i | Time: %f \033[0m]" % (x[-1],idx, t))
+                try:
+                    retVec[prev_idx] = 1
+                except:
+                    print("\033[32m  Using previous index instead failed as well \033[0m]")
             retVec = retVec.tolist()
 #            print(idx)
             retVec.append(x[idx]) #returns Q-value associated to chosen action
@@ -91,13 +97,15 @@ def create_action_selection_net(b_Direct, signal, i_reward, i_time, i_epsilon, i
 
         return net
     
-def create_error_net_associative(net, i_reward, n_action,param_neuron, i_radius, tau_mid, tau_long):
+def create_error_net_associative(net, i_reward, n_action, param_neuron, i_radius, tau_mid, tau_long):
     with net:
         with nengo.Network(label='Error network') as net.errorA_net:
             net.errorA_net.Reward = nengo.Node(output=i_reward, size_in=None, size_out=n_action+1)
             net.errorA_net.Error = nengo.networks.EnsembleArray(n_neurons = 100, n_ensembles= n_action, ens_dimensions=1, label='Error calculation',
-                                                         neuron_type=param_neuron, radius=i_radius, intercepts=nengo.dists.Uniform(-0.5, 1))
+                                                         neuron_type=param_neuron, radius=i_radius, intercepts=nengo.dists.Uniform(-1, 1))
             [nengo.Connection(net.errorA_net.Reward[-1], net.errorA_net.Error.input[n], transform=-1) for n in range(n_action)] #connect reward to each error ensemble
+
+            
             net = connect_to_error_net_associative(net, n_action, tau_mid, tau_long) 
             return net
             
@@ -106,7 +114,7 @@ def connect_to_error_net_associative(net, n_action, tau_mid, tau_long):
         [nengo.Connection(net.QEnsembleArray_Out.output[n], net.errorA_net.Error.input[n], transform=1) for n in range(n_action)] 
         return net
 nCount = 0
-def create_learning_net(net, i_time, i_inhibit, i_trainingProbe, n_action, tau_mid, tau_long):
+def create_learning_net(net, i_time, i_inhibit, i_trainingProbe, i_errorScale, n_action, tau_mid, tau_long):
     with net:
         with nengo.Network(label='learning network') as net.learning_net: 
             def func_afterT(t, x):
@@ -121,8 +129,13 @@ def create_learning_net(net, i_time, i_inhibit, i_trainingProbe, n_action, tau_m
                 else:
                     nCount = 0
                     return (len(x)-1)*[0]
+                
+            def func_errorScale(t, x):     
+                retVec = [x[n]*x[-1] for n in range(n_action)]
+                return retVec
+                
             net.learning_net.Delay = nengo.networks.EnsembleArray(n_neurons = 100, n_ensembles=n_action, ens_dimensions=1, label='Delayed and inhibited error',
-                                                                  intercepts=nengo.dists.Uniform(-0.5, 1))
+                                                                  intercepts=nengo.dists.Uniform(-1, 1))
             net.learning_net.tStart = nengo.Node(output=i_time, size_in = None, size_out=1)
             net.learning_net.LearnAfterT = nengo.Node(output=func_afterT, size_in = n_action+1, size_out = n_action)
     
@@ -132,18 +145,24 @@ def create_learning_net(net, i_time, i_inhibit, i_trainingProbe, n_action, tau_m
             net.learning_net.InhibitAllTraining = nengo.Node(output=i_inhibit, size_in=None, size_out=1)
             [nengo.Connection(net.learning_net.InhibitAllTraining, net.learning_net.Delay.ensembles[n].neurons, 
                               transform=-10*np.ones((net.learning_net.Delay.ensembles[n].n_neurons, 1))) for n in range(len(net.learning_net.Delay.ensembles))]
+            
+            net.learning_net.Scale = nengo.Node(output=i_errorScale, size_in = None, size_out = 1)
+            net.learning_net.Mod = nengo.Node(output=func_errorScale, size_in=n_action+1, size_out = n_action)
+            nengo.Connection(net.learning_net.Scale, net.learning_net.Mod[-1], synapse=None)
+            [nengo.Connection(net.learning_net.LearnAfterT[n], net.learning_net.Mod[n], synapse=None) for n in range(n_action)]
+            
             net = connect_to_learning_net(net, n_action, tau_mid, tau_long)
             
         
         if (i_trainingProbe != None):
-            def func1(t, x):
+            def func_SelectError(t, x):
                 idx = int(round(x[-1]))
                 return x[idx]
             net.TrainingProbe = nengo.Node(output =i_trainingProbe, size_in=4, size_out=0)
             nengo.Connection(net.ActionSelection[-1], net.TrainingProbe[0], synapse=None) #filter happens between q out and action selection with tau long
             nengo.Connection(net.learning_net.tStart, net.TrainingProbe[1], synapse=None)
             nengo.Connection(net.errorA_net.Reward[-1], net.TrainingProbe[2], synapse=None)
-            net.ErrorSelector = nengo.Node(output = func1, size_in= n_action+1, size_out=1)
+            net.ErrorSelector = nengo.Node(output = func_SelectError, size_in= n_action+1, size_out=1)
             [nengo.Connection(net.errorA_net.Error.output[n], net.ErrorSelector[n], synapse=tau_long) for n in range(n_action)]
             nengo.Connection(net.errorA_net.Reward[-1], net.ErrorSelector[-1])
             nengo.Connection(net.ErrorSelector, net.TrainingProbe[3], synapse=None)
@@ -157,7 +176,7 @@ def connect_to_learning_net(net, n_action, tau_mid, tau_long):
         [nengo.Connection(net.errorA_net.Reward[n], net.learning_net.Delay.ensembles[n].neurons, 
                           transform=-5*np.ones((net.learning_net.Delay.ensembles[n].n_neurons, 1))) for n in range(n_action)]
     
-        [nengo.Connection(net.learning_net.LearnAfterT[n], net.LearningConnections[n].learning_rule) for n in range(n_action)]
+        [nengo.Connection(net.learning_net.Mod[n], net.LearningConnections[n].learning_rule) for n in range(n_action)]
         [nengo.Connection(net.learning_net.InhibitAllTraining, net.errorA_net.Error.ensembles[n].neurons, 
                       transform=-10*np.ones((net.errorA_net.Error.ensembles[n].n_neurons, 1))) for n in range(len(net.errorA_net.Error.ensembles))]
         return net

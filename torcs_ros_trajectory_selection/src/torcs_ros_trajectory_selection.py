@@ -31,7 +31,9 @@ sys.path.append(cwd[:-24] + "common")
 cwd = cwd[:-24]
 
 from bzReadYAML import readTrajectoryParams, calcTrajectoryAmount, readNengoHyperparams, readConfigSrc, readsavedNengoHyperparams
-from ros_to_nengo_nodes import NodeInputScan, NodeInputReward, NodeInputStartTime, NodeInputEpsilon, NodeOutputProber, NodeInhibitAlLTraining, NodeLogTraining
+from ros_to_nengo_nodes import NodeInputScan, NodeInputReward, NodeInputStartTime
+from ros_to_nengo_nodes import NodeInputEpsilon, NodeOutputProber, NodeInhibitAlLTraining, NodeLogTraining, NodeErrorScaling
+
 from bzConsoleIndicators import IamWorking
 from bzConsoleInput import cUserIn
 
@@ -61,6 +63,7 @@ class TrajectorySelector():
         
         #### subscription parameters ####
         self.f_angle = 0
+        self.f_angleStart = 0
         self.b_TrajectoryNeeded = False
         self.n_needCounter = 0
         self.f_lapTimeStart = 0
@@ -87,11 +90,13 @@ class TrajectorySelector():
         self.time_inputer = NodeInputStartTime() #object passed to nengo net with current simulations starting time as input
         self.epsilon_inputer = NodeInputEpsilon(self.param_n_action, self.f_epsilon_init, self.f_decay) #object passed to nengo implementing epsilon greedy exploration
         self.inhibit_inputer = NodeInhibitAlLTraining() #object passed to nengo to inhibit learning net
+        self.errorScale_inputer = NodeErrorScaling(1000)
         self.output_prober = NodeOutputProber(self.param_n_action) #naction currently hardocded, should be a global ros parameter
         self.training_logger = NodeLogTraining(self.sim_dt)
-        self.q_net_ass = snn.qnet_associative(False, self.state_inputer, self.reward_inputer, self.time_inputer,
-                                              self.epsilon_inputer, self.inhibit_inputer, self.output_prober.ProbeFunc, self.training_logger, self.param_n_action,
-                                              self.f_learning_rate) #construct nengo net with proper inputs
+        self.q_net_ass = snn.qnet_associative(False, signal=self.state_inputer, i_reward=self.reward_inputer, i_time=self.time_inputer,
+                                              i_epsilon=self.epsilon_inputer, i_inhibit=self.inhibit_inputer, i_output=self.output_prober.ProbeFunc, 
+                                              i_trainingProbe = self.training_logger, i_errorScale= self.errorScale_inputer, n_action= self.param_n_action,
+                                              f_learningRate=self.f_learning_rate) #construct nengo net with proper inputs
         nengo.rc.set('progress', 'progress_bar', 'nengo.utils.progress.TerminalProgressBar') #Terminal progress bar for inline
 #        self.sim = nengo.Simulator(self.q_net_ass, progress_bar=True, optimize=True) #optimize trades in build for simulation time
         self.sim = nengo_dl.Simulator(self.q_net_ass, progress_bar=False, dt=self.sim_dt) #use nengo_dl simulator for reduced simulation time and parameter saving feature
@@ -155,6 +160,7 @@ class TrajectorySelector():
                 self.f_distStart = self.f_distCurrent
                 self.f_speedXStart = self.f_speedXCurrent
                 self.f_trackPosStart = self.f_trackPos
+                self.f_angleStart = self.f_angle
 
                 self.state_inputer.setVals(self.a_scanTrack) #state values only changed before action selection simulation
                 self.epsilon_inputer.Explore() #prepare for action selection, performs an epsilon greedy algorithm
@@ -279,7 +285,7 @@ class TrajectorySelector():
                 self.reward = (f_distTravelled/self.param_f_longitudinalDist) / (f_timeNeeded/self.param_f_minTime) #maybe pow 2
                 self.reward *= self.reward #scale reward for more distinction between all trajectories
                 self.reward += ((1-abs(self.f_trackPos))*2-(1-abs(self.f_trackPosStart)))/2 # + (1-abs(self.f_angle)/2) or delta trackpos and delta angle (only in associative) 
-                self.reward += (1-abs(self.f_angle))/2
+#                self.reward += (1-abs(self.f_angle))/2 #maybe square it instead
             self.checkRewardValidity() #ensure no weird rewards have been calculated
             self.trainOnReward() #traing
         else:
@@ -301,6 +307,8 @@ class TrajectorySelector():
             self.reward_inputer.RewardAction(self.idx_next_action, self.reward) #input reward to nengo node
             self.epsilon_inputer.OnTraining() #prepare for training
             self.epsilon_inputer.SetTraining() #update epsilon values
+            self.errorScale_inputer.SetScale(self.f_distCurrent)
+
             try:
                 self.sim.run(0.5,  progress_bar = False) #train
                 self.training_logger.PrintTraining(self.reward, self.idx_next_action)

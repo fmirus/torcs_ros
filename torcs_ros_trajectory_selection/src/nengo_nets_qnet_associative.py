@@ -14,8 +14,7 @@ from nengo_nets_subnetworks import create_learning_net, connect_to_learning_net,
 
 import nengo_dl
 
-
-def qnet_associative(b_Direct, signal, i_reward, i_time, i_epsilon, i_inhibit, i_output, i_trainingProbe, n_action, f_learningRate=0.001 ,label=''):
+def qnet_associative(b_Direct, signal, i_reward, i_time, i_epsilon, i_inhibit, i_output, i_trainingProbe, i_errorScale, n_action, f_learningRate=0.001 ,label=''):
         param_neuron = nengo.neurons.LIF() #default neuron is leaky integrate and fire
         if b_Direct == True: #set output to direct //depreceated since learning has been added
             param_neuron = nengo.neurons.Direct()
@@ -37,7 +36,7 @@ def qnet_associative(b_Direct, signal, i_reward, i_time, i_epsilon, i_inhibit, i
             #create learning net (for associative learning)                             
             #                             (Error ----> Delay ----> Only learn in Time Window ---x learning_rule)
             # One hot encoding ...inhibit...^                                               
-            net = create_learning_net(net, i_time, i_inhibit, i_trainingProbe, n_action, tau_mid, tau_long);
+            net = create_learning_net(net, i_time, i_inhibit, i_trainingProbe, i_errorScale, n_action, tau_mid, tau_long);
 
         #        net.Hard = nengo.Node(output=1)
 #        nengo.Connection(net.Hard, net.ActionSelection[2], transform=-1) #add value to number 1 to increase 

@@ -192,25 +192,39 @@ class NodeLogTraining():
         self.sim_dt = sim_dt
         self.rewardProbed = np.nan
         self.error = np.nan
+        self.error_end = np.nan
     def __call__(self, t, x): #x is start time input 
         if(t > x[1]+self.dt and t < x[1]+self.dt+4*self.sim_dt):
+            self.error = x[3]
             self.QatStart = x[0]
         self.QatEnd = x[0]
         self.rewardProbed = x[2]
-        self.error = x[3]
+        self.error_end =  x[3]
     def PrintTraining(self, reward, action):
         color1 = "\033[31m"
         color2 = "\033[32m"
         if (self.QatEnd < self.QatStart):
             color1, color2 = color2, color1
         print("Trained action \033[96m" + str(action) + "\033[0m with reward: \033[96m%.1f\033[0m/\033[96m%.1f\033[0m" % (reward, self.rewardProbed) + " (env./nengo)" +
-                                    " and error %.2f" % self.error + " | Result: Q-value changed from " + color1 + "%.3f" % self.QatStart + "\033[0m to " +
+                                    " and error %.2f / %.2f" % (self.error, self.error_end) + " | Result: Q-value changed from " + color1 + "%.3f" % self.QatStart + "\033[0m to " +
                                     color2 + "%.3f" % self.QatEnd + "\033[0m")
 
     
 class NodeErrorScaling():
-    def __init__(self):
-        self.scale = 1
-        self.nNumber = 0
-    def Step(self):
+    def __init__(self, error_decay):
+        self.scale = 1.0
+        self.nNumber = 0.0
+        self.f_maxDistance = 0.001
+        self.error_decay = error_decay
+        
+    def __call__(self, t):
+        return self.scale
+    
+    def SetScale(self, f_distance):
         self.nNumber += 1
+        f_DistanceScale = f_distance/self.f_maxDistance
+        self.f_maxDistance = max(self.f_maxDistance, f_distance)
+        if(f_DistanceScale < 0.75):
+            self.scale = np.clip(f_DistanceScale / (self.nNumber/self.error_decay), 0, 1)
+        else:
+            self.scale = np.clip(f_DistanceScale, 0, 1.1)

@@ -62,19 +62,23 @@ def EgoTrajectories(f_lateralDist, f_longitudinalDist, n_amount, b_verbose):
 #        plt.show()
 
         n_counter = 1
-        plt.plot(len(xnew)*[0], xnew, c='g', label='0')
+        plt.plot(len(xnew)*[0], xnew, c='g', label='Straight')
+        plt.plot(Traj_Cubic[0], xnew, c='c', label = 'Lane change')
+        plt.plot(Traj_Quad[0], xnew, c='m', label = 'Orientation adjustion')
+
         for trajectory in Traj_Cubic:
-            plt.plot(trajectory, xnew, label=str(n_counter), linestyle='--')
+            plt.plot(trajectory, xnew, c='c')
             n_counter += 1
         for trajectory in Traj_Quad:
-            plt.plot(trajectory, xnew, label=str(n_counter))
+            plt.plot(trajectory, xnew, c='m')
             n_counter += 1
 
-        plt.legend(loc='best')
-        plt.title('EgoTrajectories - All')
+        plt.legend(loc='lower left')
+        plt.title('Exemplary trajectories')
         plt.xlabel('[m]')
         plt.ylabel('[m]')
-        plt.gca().invert_xaxis()
+#        plt.xlim((-9, 6))
+#        plt.gca().invert_xaxis()
         plt.show()
 
 
