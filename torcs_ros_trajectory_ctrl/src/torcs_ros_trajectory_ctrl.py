@@ -78,7 +78,8 @@ class FollowTrajectory():
         self.pub_ctrl = rospy.Publisher(ctrl_topic, TORCSCtrl, queue_size=10) #publish control commands
         self.pub_needTrajectory = rospy.Publisher("/torcs_ros/notifications/ctrl_signal_action", BoolStamped, queue_size=1) #publish a control signal that indicates that a  new trajectory is needed
         self.pub_demandRestart = rospy.Publisher("/torcs_ros/notifications/demandRestart", BoolStamped, queue_size = 1)
-
+        self.pub_skipTraining = rospy.Publisher("/torcs_ros/notifications/skipTraining", BoolStamped, queue_size = 1)
+        
         #### subscriptions ####
         self.sub_trajectory = rospy.Subscriber(trajectory_topic, Path, self.trajectory_callback) #subscribe to selected trajectory in world frame
         self.sub_sensors = rospy.Subscriber(sensors_topic, TORCSSensors, self.sensors_callback) #subscribe to sensor values for evaluation
@@ -127,6 +128,7 @@ class FollowTrajectory():
            
     #calculate and publish control commands
     def calculate_ctrl_commands(self):
+        msg_skip = BoolStamped()
         if (self.sen_speedX < 30):
             self.ControlClassic();
             self.trajectory = Path() #reset as empty
@@ -143,13 +145,17 @@ class FollowTrajectory():
             self.PublishCtrlMessage();
 
             
-
+            msg_skip.header.stamp = rospy.Time.now()
+            msg_skip.data = False
             if (f_distToEnd < 1.5): #check whether end of trajectory has been reached (within a margin)
                 if(self.sen_trackpos <= 1):
                     self.needForAction_msg.data = True #indicate a new trajectory is needed
                 else:
                     print("\033[31m Oh oh. Restart and end of trajectory collision. Not running nengo \033[0m")
                     self.needForAction_msg.data = False
+                    msg_skip.data = True
+                    
+            self.pub_skipTraining.publish(msg_skip)
             self.needForAction_msg.header.stamp = rospy.Time.now()
             self.pub_needTrajectory.publish(self.needForAction_msg) #send message whether new control is needed or not
             self.pub_ctrl.publish(self.msg_ctrl)            

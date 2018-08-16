@@ -193,10 +193,16 @@ class cUserIn:
         if (self.today.day < 10):
             self.day = '0' + self.day
             
-        path_name = self.directory + "/D-" + self.year + "-" + self.month + "-" + str(self.day) + "P-0"
+        nCounter = 0 #handle 0 prefix for single digit
+        path_name = self.directory + "/D-" + self.year + "-" + self.month + "-" + str(self.day) + "P-00"
         while(os.path.isdir(path_name)):
+            if nCounter == 9:
+                path_name = path_name[:-2] + path_name[-1]
             path_name = path_name[:-1] + str(int(path_name[-1]) +1)
+            nCounter += 1
+
 #        path_name += string
+
         if(eNengoSave or eDatalogger):
             os.mkdir(path_name)
         return path_name

@@ -21,8 +21,8 @@ def qnet_associative(b_Direct, signal, i_reward, i_time, i_epsilon, i_inhibit, i
                     
         #time constant definitions
         tau_mid = 0.005 
-        tau_long = 0.01
-        q_radius = 2.25
+        tau_long = 0.05 #was 0.01
+        q_radius = 1.5
         
         #create action selection net (state---->encoding---learnin_rule--->Q-values--->epsilon-greedy_argmax-->selected_action)
         net = create_action_selection_net(b_Direct, signal, i_reward, i_time, i_epsilon, i_inhibit, i_output, 

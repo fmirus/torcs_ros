@@ -61,14 +61,16 @@ class Watchdog():
                             print("\033[96mWatchdog is wanting to unpause TORCS \033[0m")
     #                        rospy.sleep(5) #give enough time to manually stop this process
 #                            subprocess.call('xdotool search --name "torcs-bin" key p', shell=True) 
-                            msg = BoolStamped()
-                            msg.header.stamp = rospy.Time.now()
-                            self.pub_demandPause.publish(msg)
+                            msg_pause = BoolStamped()
+                            msg_pause.data = True
+                            msg_pause.header.stamp = rospy.Time.now()
+                            self.pub_demandPause.publish(msg_pause)
                             self.n_counterPause = 0
                         elif(self.n_counterPause >= 30):
                             print("\033[96mWatchdog is wanting to unpause TORCS \033[0m")
-                            msg.header.stamp = rospy.Time.now()
-                            self.pub_demandPause.publish(msg)
+                            msg_pause.header.stamp = rospy.Time.now()
+                            msg_pause.data = True
+                            self.pub_demandPause.publish(msg_pause)
                             self.n_counterPause = 0
                     else:
                         self.n_counterPause = 0

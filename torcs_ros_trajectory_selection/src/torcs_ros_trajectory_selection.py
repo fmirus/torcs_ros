@@ -106,7 +106,8 @@ class TrajectorySelector():
         self.b_doSimulateOnce = True #flag used to prevent repeated/unneeded simulations
         self.idx_last_action = 0 #index of trajectory/action used last, saved for training
         self.idx_next_action = 0 #index of trajectory/action to be used next
-
+        self.RewardInProgress = False
+        self.bSkip = False
         #### publisher ####
         self.msg_pause = BoolStamped() #message used to demand gamestate node to pause game
         self.msg_nengo = BoolStamped() #message used to notify other nodes that a nengo calculation is going on and the game should not be unpaused meanwhile
@@ -127,21 +128,23 @@ class TrajectorySelector():
         self.sub_restart = rospy.Subscriber("/torcs_ros/notifications/restart_process", Bool, self.restart_callback) #see whether client is restarting torcs
         self.sub_save = rospy.Subscriber("/torcs_ros/notifications/save", Bool, self.save_callback) #check for manual save nengo command
         self.sub_deterministic = rospy.Subscriber("/torcs_ros/notifications/deterministic", Bool, self.deterministic_callback) #manually sets epsilon value to 0 to achieve deterministic behavior
-        self.sub_inhibit = rospy.Subscriber("/trocs_ros/notifications/inhibit", Bool, self.inhibit_callback)
+        self.sub_inhibit = rospy.Subscriber("/torcs_ros/notifications/inhibit", Bool, self.inhibit_callback)
+        self.sub_skipTraining = rospy.Subscriber("/torcs_ros/notifications/skipTraining", BoolStamped, self.skipTraining_callback)
         
     def scan_callback(self, msg_scan):
-        self.a_scanTrack = [np.clip(msg_scan.ranges[idx]/self.param_rangeNormalize, 0, 1) for idx in self.a_selectScanTrack] #normalize values and clip them additionally (clip/normalization has pending change)
+        self.a_scanTrack = [np.power(np.clip(msg_scan.ranges[idx]/self.param_rangeNormalize, 0, 1), 2) for idx in self.a_selectScanTrack] #normalize values and clip them additionally (clip/normalization has pending change)
 
     #Checks whether a new trajector is needed
     def needForAction_callback(self, msg_action):
-#        IamWorking();
-#        print("called")
+        while(self.RewardInProgress == True): #avoid changing sensor before reward has happened
+            rospy.sleep(0.05)
+            
         if (self.b_TrajectoryNeeded == True and msg_action.data == True):
             self.n_needCounter += 1
         else:
             self.n_needCounter = 0
         self.b_TrajectoryNeeded = msg_action.data
-        if (self.b_TrajectoryNeeded == True): #if a new trajectory is needed
+        if (self.b_TrajectoryNeeded == True and msg_action.data==True): #if a new trajectory is needed
 #            print("entered")
             if (self.b_doSimulateOnce or self.n_needCounter >= 30): #ensures simulation is only performed once
                 if(self.n_needCounter >= 30):
@@ -170,6 +173,14 @@ class TrajectorySelector():
                 #only simulate when there is no exploration to be done (epsilon nextVal == -1)
                 #while the network is capable of passing this argument and choosing the q-value associated with the epsilon exploration action
                 #this yields in unncessary simulation time and will be jumped because of it (thought to decrease overall needed time in epsilon decay learning)
+                if(self.f_trackPos >= 1):
+                    print("\033[31m Trackpos was higher one in SELECTION! \033[0m")
+                    self.msg_pause.header.stamp = rospy.Time.now()
+                    self.pub_demandPause.publish(self.msg_pause) #demand game unpause
+                    self.msg_nengo.data = False
+                    self.msg_nengo.header.stamp = rospy.Time.now()
+                    self.pub_nengoRunning.publish(self.msg_nengo) #notify that nengo is not calculating anymore
+                    return;
                 if (self.epsilon_inputer.nextVal == -1):
                     try:
                         self.sim.run(0.5, progress_bar = False) #run simulation for x 
@@ -216,7 +227,8 @@ class TrajectorySelector():
         if(self.f_distCurrent*10 < self.f_distStart): #*10 ensures condition to only hold at lap change 
             self.f_distStart = -(self.f_distPrevious - self.f_distStart)
            
-        self.f_MaxDist = max(self.f_MaxDist, self.f_distCurrent)
+        if(self.f_distCurrent <= self.f_MaxDist + 40): #limit restart values where f_dist is set to > 2000
+            self.f_MaxDist = max(self.f_MaxDist, self.f_distCurrent) 
         
     def speed_callback(self, msg_speed):
         self.f_speedXCurrent = msg_speed.twist.linear.x
@@ -238,25 +250,34 @@ class TrajectorySelector():
     #Train with negative reward on restart, as car is either stuck or off track due to last performed action          
     def restart_callback(self, msg_restart):
         if (msg_restart.data == True): #if restart occurs
-            if(self.b_hasBeenTrained == False): #this flag ensures that the training is performed only once per restart
-                self.b_hasBeenTrained = True 
-#                print("A restart has been requested") 
-                self.reward = 0 #negative reward value
-                self.msg_pause.header.stamp = rospy.Time.now()
-                self.pub_demandPause.publish(self.msg_pause) #demand game pause
-                self.msg_nengo.data = True
-                self.msg_nengo.header.stamp = rospy.Time.now()
-                self.pub_nengoRunning.publish(self.msg_nengo) #notify that nengo is calculating
-                self.trainOnReward() #train network with negative reward
-                #force first action to always be random to avoid having identical starting situations repeatedly
+            if(self.bSkip == False):
+                if(self.b_hasBeenTrained == False): #this flag ensures that the training is performed only once per restart
+                    self.b_hasBeenTrained = True 
+    #                print("A restart has been requested") 
+                    self.reward = 0 #negative reward value
+                    self.msg_pause.header.stamp = rospy.Time.now()
+                    self.pub_demandPause.publish(self.msg_pause) #demand game pause
+                    self.msg_nengo.data = True
+                    self.msg_nengo.header.stamp = rospy.Time.now()
+                    self.pub_nengoRunning.publish(self.msg_nengo) #notify that nengo is calculating
+                    self.trainOnReward() #train network with negative reward
+                    #force first action to always be random to avoid having identical starting situations repeatedly
+                    self.epsilon_inputer.ForceRandom() 
+                    self.idx_next_action = self.epsilon_inputer.nextVal
+                    self.msg_nengo.data = False
+                    self.msg_nengo.header.stamp = rospy.Time.now()
+                    self.pub_nengoRunning.publish(self.msg_nengo) #notify that nengo is not calculating anymore
+                    self.msg_pause.header.stamp = rospy.Time.now()
+                    self.pub_demandPause.publish(self.msg_pause) #demand game unpause
+                    self.reward = np.nan
+            else:
+                print("\033[96mSkipping due to skip notification\033[0m")
+                self.reward = np.nan #negative reward value
+                self.reward_inputer.reward = 0
                 self.epsilon_inputer.ForceRandom() 
-                self.idx_next_action = self.epsilon_inputer.nextVal
-                self.msg_nengo.data = False
-                self.msg_nengo.header.stamp = rospy.Time.now()
-                self.pub_nengoRunning.publish(self.msg_nengo) #notify that nengo is not calculating anymore
-                self.msg_pause.header.stamp = rospy.Time.now()
-                self.pub_demandPause.publish(self.msg_pause) #demand game unpause
-                self.reward = np.nan
+                self.b_OmitNextReward = True
+                self.b_hasBeenTrained = False
+
         else:
             self.b_hasBeenTrained = False #game has been restart, flag can be reset therefore
         
@@ -271,6 +292,10 @@ class TrajectorySelector():
     def inhibit_callback(self, msg_inhibit):
         self.inhibit_inputer.SwitchInhibit();
         print("\033[96mInhibition of learning network changed to: " + str(self.inhibit_inputer.b_DoInhibit) +  "\033[0m")
+        
+        
+    def skipTraining_callback(self, msg_skip):
+        self.bSkip = msg_skip.data
     #calculate the lowest amount of time needed at the expected speed to traverse the longitudinal distance if the road were to be straight
     #this will then be used to calculate the reward
     #higher values can be achieved in curves, but it is not absoulutely necessary to limit this value to one
@@ -286,9 +311,11 @@ class TrajectorySelector():
             elif (self.f_lapTimeCurrent > self.f_lapTimeStart): #ensure no new lap has started
                 f_distTravelled = self.f_distCurrent - self.f_distStart #
                 f_timeNeeded = self.f_lapTimeCurrent - self.f_lapTimeStart #can be neglected if we 
-                self.reward = (f_distTravelled/self.param_f_longitudinalDist) / (f_timeNeeded/self.param_f_minTime) #maybe pow 2
-                self.reward *= self.reward #scale reward for more distinction between all trajectories
-                self.reward += ((1-abs(self.f_trackPos))*2-(1-abs(self.f_trackPosStart)))/2 # + (1-abs(self.f_angle)/2) or delta trackpos and delta angle (only in associative) 
+#                self.reward = (f_distTravelled/self.param_f_longitudinalDist) / (f_timeNeeded/self.param_f_minTime) #maybe pow 2
+#                self.reward *= self.reward #scale reward for more distinction between all trajectories
+                self.reward = (1-abs(self.f_trackPos))/2 + np.power((1-abs(self.f_angle)), 2) #or delta trackpos and delta angle (only in associative) 
+
+#                self.reward += ((1-abs(self.f_trackPos))*2-(1-abs(self.f_trackPosStart)))/2 + (1-abs(self.f_angle)/2) #or delta trackpos and delta angle (only in associative) 
 #                self.reward += (1-abs(self.f_angle))/2 #maybe square it instead
             self.checkRewardValidity() #ensure no weird rewards have been calculated
             self.trainOnReward() #traing
@@ -304,6 +331,7 @@ class TrajectorySelector():
         pass
     
     def trainOnReward(self):
+        self.RewardInProgress = True
         if(not np.equal(np.mod(self.idx_next_action, 1), 0)): #this happens as the meta command is sent repeatedly and no action pass through happens in between which would be the needed/desired behavior
             self.reward = np.nan
         if not(np.isnan(self.reward)): #no need to run if the reward does not count
@@ -312,9 +340,8 @@ class TrajectorySelector():
             self.epsilon_inputer.OnTraining() #prepare for training
             self.epsilon_inputer.SetTraining() #update epsilon values
             self.errorScale_inputer.SetScale(self.f_distCurrent)
-
             try:
-                self.sim.run(0.5,  progress_bar = False) #train
+                self.sim.run(0.425,  progress_bar = False) #train
                 self.training_logger.PrintTraining(self.reward, self.idx_next_action)
                 self.pubStamped(self.pub_reward, self.reward, Float32Stamped())
             except:
@@ -324,7 +351,7 @@ class TrajectorySelector():
                 self.saveNengoParams()
  
             self.reward_inputer.NoLearning() #ensure no training is performed before next trainOnReward call
-
+        self.RewardInProgress = False
     #saves nengo parameters with nengo_dl feature with epsiode number and current date as name
     def saveNengoParams(self):
         if(self.nengo_save):

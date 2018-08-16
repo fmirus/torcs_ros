@@ -18,7 +18,7 @@ class NodeInputScan():
         #angle min/max: +-1.57; increment 0.1653; instantenous; range: 200 m
 
         self.a_selectScanTrack = i_aScantrack
-        self.param_rangeNormalize = 200 #value used for normalization. all values above will be considered as 1   
+        self.param_rangeNormalize = 150 #value used for normalization. all values above will be considered as 1   
   
         #### subscription parameters ####      
         self.a_scanTrack = []
@@ -110,7 +110,7 @@ class NodeInputEpsilon():
         rand = np.random.uniform(0, 1) #get random number
         self.lastVal = copy.copy(self.nextVal) #save last used action index
         if (rand < self.epsilon): #random behavior if random number below current epsilon value
-            self.nextVal = np.random.randint(0, self.n_action-1) #get a random adction idx within the range
+            self.nextVal = np.random.randint(0, self.n_action) #get a random adction idx within the range
         else:
             self.nextVal = -1 #deterministic behavior, argmax will be used in net
         
@@ -126,6 +126,8 @@ class NodeInputEpsilon():
         self.val = self.lastVal
     #Return constant value in every simulation step
     def __call__(self, t):
+        if (abs(self.nextVal) >= 13):
+            print(self.nextVal)
         return self.nextVal #XXX was just vl
     #Called before every training, Update decaying epsilon parameter
     def OnTraining(self):
@@ -151,7 +153,7 @@ class NodeInputEpsilon():
             self.nextVal = np.random.randint(0, self.n_action-1) #get a random adction idx within the range
 
     def CalcEpsilon(self):
-        self.epsilon = np.clip(self.epsilon_init/(float(self.episode)/(self.decay)), 0, 1) #/(150); epsilon init = 0.1
+        self.epsilon = np.clip(self.epsilon_init/(float(self.episode)/(self.decay)), 0, self.epsilon_init) #/(150); epsilon init = 0.1
 
         
         
@@ -184,22 +186,27 @@ class NodeInhibitAlLTraining():
     def SwitchInhibit(self):
         self.b_DoInhibit = not self.b_DoInhibit
         
+        
+#A class that samples network values to print them to console
 class NodeLogTraining():
     def __init__(self, sim_dt):
-        self.QatStart = np.nan
-        self.QatEnd = np.nan
-        self.dt = 0.2
-        self.sim_dt = sim_dt
-        self.rewardProbed = np.nan
-        self.error = np.nan
-        self.error_end = np.nan
+        self.QatStart = np.nan #q value at start of training
+        self.QatEnd = np.nan #q value at end of simulation
+        self.dt = 0.2 #
+        self.sim_dt = sim_dt #simulation time step
+        self.rewardProbed = np.nan #reward in network
+        self.error = np.nan #error sample at start of training
+        self.error_end = np.nan #error sample at end of trianing
     def __call__(self, t, x): #x is start time input 
-        if(t > x[1]+self.dt and t < x[1]+self.dt+4*self.sim_dt):
-            self.error = x[3]
-            self.QatStart = x[0]
-        self.QatEnd = x[0]
+        #sample at start of training (after dt) and limit to small window (uses sim_dt)
+        if(t > x[1]+self.dt and t < x[1]+self.dt+4*self.sim_dt): 
+            self.error = x[3] #error signal is [3] connected signal in network
+            self.QatStart = x[0] #q utility is [0] conencted signal in network
+        #sample on every call, last call will result in last value
+        self.QatEnd = x[0] 
         self.rewardProbed = x[2]
         self.error_end =  x[3]
+    #Print probed values to output
     def PrintTraining(self, reward, action):
         color1 = "\033[31m"
         color2 = "\033[32m"
@@ -209,30 +216,35 @@ class NodeLogTraining():
                                     " and error %.2f / %.2f" % (self.error, self.error_end) + " | Result: Q-value changed from " + color1 + "%.3f" % self.QatStart + "\033[0m to " +
                                     color2 + "%.3f" % self.QatEnd + "\033[0m")
 
-    
+#A class to scale the error by different factors
+#Factor 1: Implement time decaying learning rate by scaling error
+#Factor 2: Implement inverse distance decaying (after some time, samples far away from vehicle will have been visited less frequently, therefore
+#          their error should be valued higher as samples that are close to the start line)
 class NodeErrorScaling():
     def __init__(self, error_decay):
-        self.scale = 1.0
-        self.nNumber = 0.0
-        self.f_maxDistance = 0.001
-        self.error_decay = error_decay
-        self.distance_array = []
-        self.moving_size = 5
+        self.scale = 1.0 #value used for scaling
+        self.nNumber = 0.0 #episode number
+        self.f_maxDistance = 0.001 #value used to scale by previously known states
+        self.error_decay = error_decay #time decay rate
+        self.distance_array = [self.f_maxDistance] #last x values of best distance, used for moving average
+        self.moving_size = 5 #size of moving average
     def __call__(self, t):
         return self.scale
     
     def SetScale(self, f_distance):
-        self.nNumber += 1
-        f_DistanceScale = f_distance/self.f_maxDistance
-        self.f_maxDistance = max(self.f_maxDistance, f_distance)
-        if(f_DistanceScale < 0.75):
-            self.scale = np.clip(f_DistanceScale / (self.nNumber/self.error_decay), 0, 1)
+        self.nNumber += 1 #Update episode number on call
+        f_DistanceScale = f_distance/self.f_maxDistance #Calculate new distance scale
+        if(f_DistanceScale < 0.75): #if to close to starting line, scale error down
+            self.scale = np.clip(f_DistanceScale / (self.nNumber/self.error_decay), 0, 1) #Implement time decay as well
         else:
-            self.scale = np.clip(f_DistanceScale, 0, 1.1)
-        print("The error scaling for this sample is: %.2f" % self.scale)
+            self.scale = np.clip(f_DistanceScale, 0, 1.1) #ignore time decay on unknown states
+        print("The error scaling for this sample is: %.2f" % self.scale + " with current max distances: " + str(self.distance_array))
 
+    #Add new max distance whenever race is restarted
     def OnRestart(self, f_newMax):
-        if(len(self.distance_array) == self.moving_size):
-            self.distance_array = self.distance_array[1:]
-        self.distance_array.append(f_newMax)
-        self.f_maxDistance = sum(self.distance_array)/len(self.distance_array)
+        if(f_newMax > 1): #sometimes the distance will falsely be close to 0
+            if(len(self.distance_array) == self.moving_size): #see if moving average array is full
+                self.distance_array = self.distance_array[1:] #if yes, erase first value in array
+            self.distance_array.append(f_newMax)#add new value to array
+        self.f_maxDistance = sum(self.distance_array)/len(self.distance_array) #Calculate new max distance
+

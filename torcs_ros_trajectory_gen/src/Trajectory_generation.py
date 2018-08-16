@@ -31,7 +31,7 @@ def EgoTrajectories(f_lateralDist, f_longitudinalDist, n_amount, b_verbose):
     Traj_Quad = []
     
     
-    for s1 in np.linspace(-float(f_lateralDist)/2, float(f_lateralDist)/2, n_amount):
+    for s1 in np.linspace(-float(f_lateralDist)/3, float(f_lateralDist)/3, n_amount):
         x = [0, f_longitudinalDist]
         y = [0, s1]
         f = scipy.interpolate.CubicSpline(x,y, bc_type='clamped')
@@ -117,5 +117,5 @@ def ComputeHeadingsInRad(xvals, yvals):
 #CompareSecondOrderPolynomials()
 #CompareThirdOrderPolynomials()
 #
-#f_lateralDist, f_longitudinalDist, n_amount, b_verbose = 10, 25, 6, True
-#EgoTrajectories(f_lateralDist, f_longitudinalDist, n_amount, b_verbose)
+#f_lateralDist, f_longitudinalDist, n_amount, b_verbose = 15, 25, 6, True
+#a, b = EgoTrajectories(f_lateralDist, f_longitudinalDist, n_amount, b_verbose)
