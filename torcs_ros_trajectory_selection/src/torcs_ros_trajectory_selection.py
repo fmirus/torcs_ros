@@ -343,6 +343,8 @@ class TrajectorySelector():
             self.reward_inputer.RewardAction(self.idx_next_action, self.reward) #input reward to nengo node
             self.epsilon_inputer.OnTraining() #prepare for training
             self.epsilon_inputer.SetTraining() #update epsilon values
+            self.time_inputer.setT(self.output_prober.time_val) #input simulation starting time to node
+
 #            self.errorScale_inputer.SetScale(self.f_distCurrent) #XXX
             try:
                 self.sim.run(0.425,  progress_bar = False) #train
