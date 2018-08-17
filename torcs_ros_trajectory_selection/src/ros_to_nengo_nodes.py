@@ -100,6 +100,7 @@ class NodeInputEpsilon():
         self.episode = 1.0 #counter used for decay, increased on every learning iteration 
         self.decay = i_decay
         self.b_Inverted = False
+        self.b_NextIsRandom = False
     #Set to deterministic behavior. Can be used to manually turn off epsilon exploration
     def DoNotExplore(self):
         self.val = -1
@@ -109,8 +110,9 @@ class NodeInputEpsilon():
     def Explore(self):
         rand = np.random.uniform(0, 1) #get random number
         self.lastVal = copy.copy(self.nextVal) #save last used action index
-        if (rand < self.epsilon): #random behavior if random number below current epsilon value
+        if (rand < self.epsilon or self.b_NextIsRandom == True): #random behavior if random number below current epsilon value
             self.nextVal = np.random.randint(0, self.n_action) #get a random adction idx within the range
+            self.b_NextIsRandom = False
         else:
             self.nextVal = -1 #deterministic behavior, argmax will be used in net
         
@@ -126,7 +128,7 @@ class NodeInputEpsilon():
         self.val = self.lastVal
     #Return constant value in every simulation step
     def __call__(self, t):
-        if (abs(self.nextVal) >= 13):
+        if (abs(self.nextVal) >= self.n_action):
             print(self.nextVal)
         return self.nextVal #XXX was just vl
     #Called before every training, Update decaying epsilon parameter
@@ -149,8 +151,7 @@ class NodeInputEpsilon():
         self.epsilon_init = temp
         
     def ForceRandom(self):
-        if (self.nextVal == -1):
-            self.nextVal = np.random.randint(0, self.n_action-1) #get a random adction idx within the range
+        self.b_NextIsRandom = True
 
     def CalcEpsilon(self):
         self.epsilon = np.clip(self.epsilon_init/(float(self.episode)/(self.decay)), 0, self.epsilon_init) #/(150); epsilon init = 0.1
@@ -239,7 +240,7 @@ class NodeErrorScaling():
         else:
             self.scale = np.clip(f_DistanceScale, 0, 1.1) #ignore time decay on unknown states
         print("The error scaling for this sample is: %.2f" % self.scale + " with current max distances: " + str(self.distance_array))
-
+        
     #Add new max distance whenever race is restarted
     def OnRestart(self, f_newMax):
         if(f_newMax > 1): #sometimes the distance will falsely be close to 0

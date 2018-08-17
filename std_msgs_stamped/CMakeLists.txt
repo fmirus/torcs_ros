@@ -19,6 +19,7 @@ add_message_files(
   Int8Stamped.msg
   Float32Stamped.msg
   BoolStamped.msg
+  UInt32Stamped.msg
 )
 
 ## Generate added messages and services with any dependencies listed here

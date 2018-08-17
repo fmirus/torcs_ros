@@ -17,7 +17,7 @@ from geometry_msgs.msg import TwistStamped
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Bool, Int8, Float32
 from torcs_msgs.msg import TORCSSensors, TORCSCtrl
-from std_msgs_stamped.msg import Int8Stamped, Float32Stamped, BoolStamped
+from std_msgs_stamped.msg import Int8Stamped, Float32Stamped, BoolStamped, UInt32Stamped
 import nengo_nets_qnet_associative as snn
 
 import sys
@@ -82,6 +82,8 @@ class TrajectorySelector():
         self.b_hasBeenTrained = False
         self.b_OmitNextReward = False
         self.f_MaxDist = 0
+        self.nRestarts = 0
+        
         #### nengo net and parameters #### 
         self.nengoLoadParam()
         self.sim_dt = 0.001 #default value
@@ -116,7 +118,7 @@ class TrajectorySelector():
         self.pub_demandPause = rospy.Publisher("/torcs_ros/notifications/demandPause", BoolStamped,queue_size = 1) #a pause request is sent with every publish, independent of data
         self.pub_nengoRunning = rospy.Publisher("/torcs_ros/notifications/nengoIsRunning", BoolStamped, queue_size=1) #last published value is current calculation status (true: calculation running, false:no calculation)
         self.pub_reward = rospy.Publisher("/torcs_ros/logging/reward", Float32Stamped, queue_size=1)
-        
+        self.pub_startPoint = rospy.Publisher("/torcs_ros/StartingPoint", Int8Stamped, queue_size=1)
         
         ##### subscribers #####
         self.sub_scanTrack = rospy.Subscriber(scan_topic, LaserScan, self.scan_callback) #get laser scanners
@@ -246,10 +248,12 @@ class TrajectorySelector():
             #Do not reward next action, as we have to achieve 30 km/h first
             self.b_OmitNextReward = True
             self.b_doSimulateOnce = True
+            self.DetermineAndPublishStartingPoint()
 
     #Train with negative reward on restart, as car is either stuck or off track due to last performed action          
     def restart_callback(self, msg_restart):
         if (msg_restart.data == True): #if restart occurs
+            self.nRestarts += 1
             if(self.bSkip == False):
                 if(self.b_hasBeenTrained == False): #this flag ensures that the training is performed only once per restart
                     self.b_hasBeenTrained = True 
@@ -313,8 +317,8 @@ class TrajectorySelector():
                 f_timeNeeded = self.f_lapTimeCurrent - self.f_lapTimeStart #can be neglected if we 
 #                self.reward = (f_distTravelled/self.param_f_longitudinalDist) / (f_timeNeeded/self.param_f_minTime) #maybe pow 2
 #                self.reward *= self.reward #scale reward for more distinction between all trajectories
-                self.reward = (1-abs(self.f_trackPos))/2 + np.power((1-abs(self.f_angle)), 2) #or delta trackpos and delta angle (only in associative) 
-
+                self.reward = (1-abs(self.f_trackPos)) * np.power((1-abs(self.f_angle)), 2) #was trackpos/3 + 
+                self.reward *= 2 #was 1.5
 #                self.reward += ((1-abs(self.f_trackPos))*2-(1-abs(self.f_trackPosStart)))/2 + (1-abs(self.f_angle)/2) #or delta trackpos and delta angle (only in associative) 
 #                self.reward += (1-abs(self.f_angle))/2 #maybe square it instead
             self.checkRewardValidity() #ensure no weird rewards have been calculated
@@ -339,7 +343,7 @@ class TrajectorySelector():
             self.reward_inputer.RewardAction(self.idx_next_action, self.reward) #input reward to nengo node
             self.epsilon_inputer.OnTraining() #prepare for training
             self.epsilon_inputer.SetTraining() #update epsilon values
-            self.errorScale_inputer.SetScale(self.f_distCurrent)
+#            self.errorScale_inputer.SetScale(self.f_distCurrent) #XXX
             try:
                 self.sim.run(0.425,  progress_bar = False) #train
                 self.training_logger.PrintTraining(self.reward, self.idx_next_action)
@@ -440,7 +444,12 @@ class TrajectorySelector():
         for n in range(10):
             pubInputReceived.publish(Bool())
             rospy.sleep(0.5)
-
+            
+    def DetermineAndPublishStartingPoint(self):
+        msg_startingPoint = Int8Stamped()
+        msg_startingPoint.header.stamp = rospy.Time.now()
+        msg_startingPoint.data = int(self.epsilon_inputer.episode) / 50 % 4 #changes value every 50 episodes and cycles through 4 values
+        self.pub_startPoint.publish(msg_startingPoint)
 if __name__ == "__main__":
     rospy.init_node("trajectory_selection")
     selector = TrajectorySelector(cwd)

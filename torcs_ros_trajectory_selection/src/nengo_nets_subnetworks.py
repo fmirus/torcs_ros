@@ -63,18 +63,18 @@ def create_action_selection_net(b_Direct, signal, i_reward, i_time, i_epsilon, i
         net.eGreedyIn = nengo.Node(output=i_epsilon, label='epsilon greedy input')
         
         #Create an ensemble, each dimension encoding one rangefinder sensor
-        net.QEnsemble_In = nengo.Ensemble(n_neurons = 150*n_dim, dimensions = n_dim, neuron_type=param_neuron, label='input encoding', radius=1,
+        net.QEnsemble_In = nengo.Ensemble(n_neurons = 300*n_dim, dimensions = n_dim, neuron_type=param_neuron, label='input encoding', radius=1,
                                           intercepts=nengo.dists.Uniform(0, 1)) 
         nengo.Connection(net.input, net.QEnsemble_In) #connect input to representation
 
         #Create an array of ensembles, each representing one action
-        net.QEnsembleArray_Out = nengo.networks.EnsembleArray(n_neurons = 100, n_ensembles=n_action, ens_dimensions=1, 
+        net.QEnsembleArray_Out = nengo.networks.EnsembleArray(n_neurons = 150, n_ensembles=n_action, ens_dimensions=1, 
                                                                     label='Q Values',neuron_type=param_neuron, radius=i_radius, 
-                                                                    intercepts=nengo.dists.Uniform(0, 1))  #change back to -0.5
+                                                                    intercepts=nengo.dists.Uniform(-0.5, 1))  #was -0.1
         
         #Connect encoding to Q-values with a learnable connection per action
         #Initalize Q population with a low random reward
-        net.LearningConnections = [nengo.Connection(net.QEnsemble_In, net.QEnsembleArray_Out.input[n], function=lambda x: 0.2,#np.random.uniform(0, 0.1), 
+        net.LearningConnections = [nengo.Connection(net.QEnsemble_In, net.QEnsembleArray_Out.input[n], function=lambda x: 1,#np.random.uniform(0, 0.1), 
                                                     label='Learning Connection Action' + str(n), learning_rule_type=nengo.PES(learning_rate=f_learningRate,
                                                                                             ),#pre_synapse=nengo.synapses.Lowpass(tau=0.05)), #default is tau=0.005
                                                     synapse=tau_long) for n in range(n_action)]

@@ -70,12 +70,12 @@ class TrajectoryPublish():
             self.f_longitudinalDist, self.n_amount, False)
         
         self.set_trajectories() #initialize trajectories        
-
+        self.n_amount = calcTrajectoryAmount(self.n_amount)
         #### publishers ####
          #list of publishers of trajectories in Path() format, one for each trajectory
         self.pub_allPaths = [] # //depreceated; list of publishers to visualize all possible trajectories
         if (self.b_Visualize):
-            [self.pub_allPaths.append(rospy.Publisher("/torcs_ros/trajectory"+str(x), Path, queue_size=1)) for x in range(0, self.n_amount*2+1)] #
+            [self.pub_allPaths.append(rospy.Publisher("/torcs_ros/trajectories/trajectory"+str(x), Path, queue_size=1)) for x in range(0, self.n_amount)] #
         self.pub_pathSelected = rospy.Publisher("/torcs_ros/trajectorySelected", Path, queue_size=1) #publisher for currently selected trajectory [in world frame]
         self.pub_pathSelectedVisual = rospy.Publisher("/torcs_ros/trajectorySelectedVis", Path, queue_size=1) #publisher for currently selected trajectory [in baselink frame]
         self.pub_handshake = rospy.Publisher("/torcs_ros/gen2selHandshake", Bool, queue_size=1)

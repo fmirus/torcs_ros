@@ -1,11 +1,12 @@
 Panels:
   - Class: rviz/Displays
-    Help Height: 78
+    Help Height: 75
     Name: Displays
     Property Tree Widget:
-      Expanded: ~
-      Splitter Ratio: 0.883720934
-    Tree Height: 359
+      Expanded:
+        - /Path_Trajectory_61
+      Splitter Ratio: 0.361556053
+    Tree Height: 75
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
@@ -165,7 +166,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /torcs_ros/trajectory0
+      Topic: /torcs_ros/trajectories/trajectory0
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -188,7 +189,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /torcs_ros/trajectory1
+      Topic: /torcs_ros/trajectories/trajectory1
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -211,7 +212,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /torcs_ros/trajectory2
+      Topic: /torcs_ros/trajectories/trajectory2
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -234,7 +235,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /torcs_ros/trajectory3
+      Topic: /torcs_ros/trajectories/trajectory3
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -257,7 +258,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /torcs_ros/trajectory4
+      Topic: /torcs_ros/trajectories/trajectory4
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -280,7 +281,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /torcs_ros/trajectory5
+      Topic: /torcs_ros/trajectories/trajectory6
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -303,7 +304,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /torcs_ros/trajectory6
+      Topic: /torcs_ros/trajectories/trajectory6
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -326,7 +327,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /torcs_ros/trajectory7
+      Topic: /torcs_ros/trajectories/trajectory7
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -349,7 +350,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /torcs_ros/trajectory8
+      Topic: /torcs_ros/trajectories/trajectory8
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -372,7 +373,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /torcs_ros/trajectory9
+      Topic: /torcs_ros/trajectories/trajectory9
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -395,7 +396,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /torcs_ros/trajectory10
+      Topic: /torcs_ros/trajectories/trajectory10
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -418,7 +419,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /torcs_ros/trajectory11
+      Topic: /torcs_ros/trajectories/trajectory11
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -441,7 +442,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /torcs_ros/trajectory12
+      Topic: /torcs_ros/trajectories/trajectory12
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -464,7 +465,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /torcs_ros/trajectory13
+      Topic: /torcs_ros/trajectories/trajectory13
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -487,7 +488,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /torcs_ros/trajectory14
+      Topic: /torcs_ros/trajectories/trajectory14
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -510,7 +511,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /torcs_ros/trajectory15
+      Topic: /torcs_ros/trajectories/trajectory15
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -533,7 +534,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /torcs_ros/trajectory16
+      Topic: /torcs_ros/trajectories/trajectory16
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -556,7 +557,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /torcs_ros/trajectory17
+      Topic: /torcs_ros/trajectories/trajectory17
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -579,7 +580,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /torcs_ros/trajectory18
+      Topic: /torcs_ros/trajectories/trajectory18
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -602,7 +603,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /torcs_ros/trajectory19
+      Topic: /torcs_ros/trajectories/trajectory19
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -625,7 +626,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /torcs_ros/trajectory20
+      Topic: /torcs_ros/trajectories/trajectory20
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -698,7 +699,7 @@ Visualization Manager:
   Value: true
   Views:
     Current:
-      Angle: 0
+      Angle: -0.0149999848
       Class: rviz/TopDownOrtho
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
@@ -722,7 +723,7 @@ Window Geometry:
   Hide Right Dock: true
   ImageTORCS:
     collapsed: true
-  QMainWindow State: 000000ff00000000fd0000000400000000000001920000015ffc020000000cfb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006100fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c0061007900730000000028000000da000000d700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000c00430061006d006500720061000000021e000000160000000000000000fb0000000c00430061006d006500720061010000022e000000c20000000000000000fb0000000a0049006d00610067006501000002ff0000010b0000000000000000fb000000140049006d0061006700650054004f00520043005300000001080000007f0000001600ffffff000000010000010f00000396fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000002800000396000000ad00fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000003930000003efc0100000002fb0000000800540069006d00650100000000000003930000030000fffffffb0000000800540069006d00650100000000000004500000000000000000000003930000015f00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000400000000000002570000015ffc020000000cfb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006100fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c0061007900730000000028000000d7000000d700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000c00430061006d006500720061000000021e000000160000000000000000fb0000000c00430061006d006500720061010000022e000000c20000000000000000fb0000000a0049006d00610067006501000002ff0000010b0000000000000000fb000000140049006d0061006700650054004f0052004300530000000105000000820000001600ffffff000000010000010f0000015ffc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a0056006900650077007300000000280000015f000000ad00fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000003920000003efc0100000002fb0000000800540069006d00650100000000000003920000030000fffffffb0000000800540069006d00650100000000000004500000000000000000000003920000015f00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
@@ -731,6 +732,6 @@ Window Geometry:
     collapsed: false
   Views:
     collapsed: true
-  Width: 915
-  X: 1005
-  Y: 556
+  Width: 914
+  X: 912
+  Y: 198

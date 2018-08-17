@@ -18,7 +18,7 @@ from tf2_msgs.msg import TFMessage
 from nav_msgs.msg import Path
 from torcs_msgs.msg import TORCSCtrl, TORCSSensors
 from std_msgs.msg import Bool
-from std_msgs_stamped.msg import BoolStamped
+from std_msgs_stamped.msg import BoolStamped, Int8Stamped
 #add common folder to path; have to replace this later with rospkg when launched with roslaunch 
 import os
 import sys
@@ -51,7 +51,7 @@ class FollowTrajectory():
         self.sen_gear = 0 #current gear
         self.sen_speedX = 0 #cars longitudinal speed
         self.sen_laptime = 0 #current lap time, used to avoid premature restarts
-        
+        self.sen_distance = 0 #current distance from start line
         
         #### publication parameters ####
         self.ctrl_accel = 0 #desired accel signal [calculated for low constant speed]
@@ -68,7 +68,12 @@ class FollowTrajectory():
         self.trajectory_rot = vec4() #desired orientation from trajectory 
         self.sensors_topic = sensors_topic #message type used to identify whether the client node has been restarted
         self.race_start_time = rospy.Time.now()
+        self.startDistance = 50
+        self.bClassic = True
+        self.nStartingPointPrev = 0
         
+        self.rpm_th = 4000
+        self.accel_th = 0.2
         #### ensure all dependent nodes are up and running ####
         rospy.wait_for_message("/torcs_ros/notifications/NengoInitialized", Bool)
         rospy.wait_for_message(frame_topic, TFMessage) #wait until frame is published
@@ -79,16 +84,17 @@ class FollowTrajectory():
         self.pub_needTrajectory = rospy.Publisher("/torcs_ros/notifications/ctrl_signal_action", BoolStamped, queue_size=1) #publish a control signal that indicates that a  new trajectory is needed
         self.pub_demandRestart = rospy.Publisher("/torcs_ros/notifications/demandRestart", BoolStamped, queue_size = 1)
         self.pub_skipTraining = rospy.Publisher("/torcs_ros/notifications/skipTraining", BoolStamped, queue_size = 1)
+        self.pub_dontSave = rospy.Publisher("/torcs_ros/notifications/dontSave", BoolStamped, queue_size= 1)
         
         #### subscriptions ####
         self.sub_trajectory = rospy.Subscriber(trajectory_topic, Path, self.trajectory_callback) #subscribe to selected trajectory in world frame
         self.sub_sensors = rospy.Subscriber(sensors_topic, TORCSSensors, self.sensors_callback) #subscribe to sensor values for evaluation
         self.sub_frame = rospy.Subscriber(frame_topic, TFMessage, self.frame_callback, queue_size=1) #subscribe to frame transformations
         self.sub_speed = rospy.Subscriber(speed_topic, TwistStamped, self.speed_callback)
-        
+        self.sub_startingPoint = rospy.Subscriber("/torcs_ros/StartingPoint", Int8Stamped, self.startingPoint_callback)
 
                 
-
+    
 
     #get trajectory
     def trajectory_callback(self, msg_trajectory):
@@ -102,7 +108,7 @@ class FollowTrajectory():
         self.sen_rpm = msg_sensors.rpm #rpm [no unit]
         self.sen_gear = msg_sensors.gear #current gear
         self.sen_laptime = msg_sensors.currentLapTime
-        
+        self.sen_distance = msg_sensors.distFromStart
     #get baselink frame position and orientation 
     def frame_callback(self, msg_frame):
         frame_idx = 0 #index to identify the proper transformation if there is more than the world and base_link frames avalaible
@@ -129,12 +135,30 @@ class FollowTrajectory():
     #calculate and publish control commands
     def calculate_ctrl_commands(self):
         msg_skip = BoolStamped()
-        if (self.sen_speedX < 30):
-            self.ControlClassic();
+        if (self.sen_speedX < 30 or self.bClassic == True):
+            self.rpm_th = 5500
+            self.accel_th = 0.8
+#            self.ControlClassic();
             self.trajectory = Path() #reset as empty
             self.trajectory.poses = []
-        elif (len(self.trajectory.poses) > 0): #ensure this callback does not happen before the first trajectory has been published
             
+            self.NotifySaveDontSave(True)
+
+            if (self.sen_distance > self.startDistance-25 and self.sen_distance < self.startDistance + 100):
+                self.rpm_th = 4000
+                self.accel_th = 0.2
+                if (self.sen_speedX > 40):
+                    self.ctrl_brake = 1
+                    self.ctrl_accel = 0  
+                else:
+                    self.ctrl_brake = 0
+
+            if (self.sen_distance > self.startDistance and self.sen_distance < self.startDistance + 100):
+                self.bClassic = False
+            self.ControlClassic();
+
+        elif (len(self.trajectory.poses) > 0): #ensure this callback does not happen before the first trajectory has been published
+            self.NotifySaveDontSave(False)
             [f_distToTraj, idx_poseHeading, f_distToEnd, self.needForAction_msg.data] = BaseLinkToTrajectory(
                     self.ros_trans.x, self.ros_trans.y, self.trajectory.poses) #Calculate baselink to trajectory information
             self.trajectory_rot.Set(self.trajectory.poses[idx_poseHeading]) #Convert msg type to vec4() quatenrion
@@ -173,8 +197,9 @@ class FollowTrajectory():
          
     def RPMandAccel(self):
          #limit acceleration signal to achieve low constant speeds
-         if (self.sen_rpm < 4000 or self.sen_gear == 0): #allow high enough rpm if car is in neutral gear (start of race)
-            self.ctrl_accel = 0.2
+         # was 4000
+         if (self.sen_rpm < self.rpm_th or self.sen_gear == 0): #allow high enough rpm if car is in neutral gear (start of race)
+            self.ctrl_accel = self.accel_th
          else:
             self.ctrl_accel = 0
     
@@ -217,7 +242,29 @@ class FollowTrajectory():
             rospy.wait_for_message(self.sensors_topic, TORCSSensors) #wait for a message from client node to ensure it has restarted
             self.race_start_time = rospy.Time.now() #new race started, reinitialize time
 
-
+    def startingPoint_callback(self, msg_startingPoint):
+        self.PointToDistanceLookUp(msg_startingPoint.data)
+        self.bClassic = True
+        
+    def PointToDistanceLookUp(self, nPoint):
+        if(nPoint == 0):
+            self.startDistance = 830
+        elif(nPoint == 1):
+            self.startDistance = 220
+        elif (nPoint == 2):
+            self.startDistance = 50
+        else:
+            self.startDistance = 550
+        if(self.nStartingPointPrev != nPoint):
+            print("\033[96mSetting start point for next episodes to " + str(self.startDistance) + " m from start line \033[0m")
+        self.nStartingPointPrev = nPoint
+        
+    def NotifySaveDontSave(self, bVal):
+        msg_dontSave = BoolStamped()
+        msg_dontSave.header.stamp = rospy.Time.now()
+        msg_dontSave.data = bVal
+        self.pub_dontSave.publish(msg_dontSave)
+        
 if __name__ == "__main__":
     rospy.init_node("Trajectory_Follow_Control")
     Controller = FollowTrajectory()

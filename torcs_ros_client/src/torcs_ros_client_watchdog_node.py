@@ -55,13 +55,11 @@ class Watchdog():
                 if("Server did not respond in 1 second" in msg.msg):
                     dt = rospy.Time.now() - self.log_callback_time_pause 
                     self.log_callback_time_pause = rospy.Time.now()
+                    msg_pause = BoolStamped()
                     if(dt.secs < 3):
                         self.n_counterPause += 1
                         if(self.n_counterPause >= self.n_counterComp and not self.b_restartInProgress):
                             print("\033[96mWatchdog is wanting to unpause TORCS \033[0m")
-    #                        rospy.sleep(5) #give enough time to manually stop this process
-#                            subprocess.call('xdotool search --name "torcs-bin" key p', shell=True) 
-                            msg_pause = BoolStamped()
                             msg_pause.data = True
                             msg_pause.header.stamp = rospy.Time.now()
                             self.pub_demandPause.publish(msg_pause)
