@@ -63,10 +63,12 @@ def create_action_selection_net(b_Direct, signal, i_reward, i_time, i_epsilon, i
         net.eGreedyIn = nengo.Node(output=i_epsilon, label='epsilon greedy input')
         
         #Create an ensemble, each dimension encoding one rangefinder sensor
-        net.QEnsemble_In = nengo.Ensemble(n_neurons = 300*n_dim, dimensions = n_dim, neuron_type=param_neuron, label='input encoding', radius=1,
-                                          intercepts=nengo.dists.Uniform(0, 1)) 
-        nengo.Connection(net.input, net.QEnsemble_In) #connect input to representation
-
+#        net.QEnsemble_In = nengo.Ensemble(n_neurons = 300*n_dim, dimensions = n_dim, neuron_type=param_neuron, label='input encoding', radius=1,
+#                                          intercepts=nengo.dists.Uniform(0, 1)) 
+        net.QEnsemble_In2 = nengo.networks.EnsembleArray(n_neurons=250, n_ensembles= n_dim, ens_dimensions=1, label='input encoding', radius=1, 
+                                                         intercepts=nengo.dists.Uniform(0, 1))
+#        nengo.Connection(net.input, net.QEnsemble_In) #connect input to representation
+        nengo.Connection(net.input, net.QEnsemble_In2.input)
         #Create an array of ensembles, each representing one action
         net.QEnsembleArray_Out = nengo.networks.EnsembleArray(n_neurons = 150, n_ensembles=n_action, ens_dimensions=1, 
                                                                     label='Q Values',neuron_type=param_neuron, radius=i_radius, 
@@ -74,11 +76,20 @@ def create_action_selection_net(b_Direct, signal, i_reward, i_time, i_epsilon, i
         
         #Connect encoding to Q-values with a learnable connection per action
         #Initalize Q population with a low random reward
-        net.LearningConnections = [nengo.Connection(net.QEnsemble_In, net.QEnsembleArray_Out.input[n], function=lambda x: 1,#np.random.uniform(0, 0.1), 
-                                                    label='Learning Connection Action' + str(n), learning_rule_type=nengo.PES(learning_rate=f_learningRate,
-                                                                                            ),#pre_synapse=nengo.synapses.Lowpass(tau=0.05)), #default is tau=0.005
-                                                    synapse=tau_long) for n in range(n_action)]
-    
+        
+        net.LearningConnections2 = {}
+        for action in range(n_action):
+            net.LearningConnections2[action] = [nengo.Connection(net.QEnsemble_In2.all_ensembles[state], net.QEnsembleArray_Out.input[action], 
+                                                    function=lambda x: 0.5,#np.random.uniform(0, 0.1), 
+                                                    label='Learning Connection Action' + str(action) + " dim. " +str(state), 
+                                                    learning_rule_type=nengo.PES(learning_rate=f_learningRate),
+                                                    synapse=tau_long) for state in range(n_dim)]
+#        
+#        net.LearningConnections = [nengo.Connection(net.QEnsemble_In, net.QEnsembleArray_Out.input[n], function=lambda x: 1,#np.random.uniform(0, 0.1), 
+#                                                    label='Learning Connection Action' + str(n), learning_rule_type=nengo.PES(learning_rate=f_learningRate,
+#                                                                                            ),#pre_synapse=nengo.synapses.Lowpass(tau=0.05)), #default is tau=0.005
+#                                                    synapse=tau_long) for n in range(n_action)]
+
         
         #Create a node that implements an epsilon-exploration argmax function 
         #Last value is outputted Q-value, every other output is one-hot encoded selected action with action idx
@@ -113,7 +124,7 @@ def connect_to_error_net_associative(net, n_action, tau_mid, tau_long):
         [nengo.Connection(net.QEnsembleArray_Out.output[n], net.errorA_net.Error.input[n], transform=1) for n in range(n_action)] 
         return net
 nCount = 0
-def create_learning_net(net, i_time, i_inhibit, i_trainingProbe, i_errorScale, n_action, i_radius, tau_mid, tau_long):
+def create_learning_net(net, i_time, i_inhibit, i_trainingProbe, i_errorScale, n_action, n_dim, i_radius, tau_mid, tau_long):
     with net:
         with nengo.Network(label='learning network') as net.learning_net: 
             def func_afterT(t, x):
@@ -147,7 +158,7 @@ def create_learning_net(net, i_time, i_inhibit, i_trainingProbe, i_errorScale, n
             nengo.Connection(net.learning_net.Scale, net.learning_net.Mod[-1], synapse=None)
             [nengo.Connection(net.learning_net.LearnAfterT[n], net.learning_net.Mod[n], synapse=None) for n in range(n_action)]
             
-            net = connect_to_learning_net(net, n_action, tau_mid, tau_long)
+            net = connect_to_learning_net(net, n_action, n_dim, tau_mid, tau_long)
             
         #See if a training prope node has been passed and connect it to the network if it has
         if (i_trainingProbe != None):
@@ -166,13 +177,17 @@ def create_learning_net(net, i_time, i_inhibit, i_trainingProbe, i_errorScale, n
         return net
             
 ##Connect learning network to overall network
-def connect_to_learning_net(net, n_action, tau_mid, tau_long):
+def connect_to_learning_net(net, n_action, n_dim, tau_mid, tau_long):
     with net:
         nengo.Connection(net.errorA_net.Error.output, net.learning_net.Delay.input)#, synapse = tau_long)
         [nengo.Connection(net.errorA_net.Reward[n], net.learning_net.Delay.ensembles[n].neurons, 
                           transform=-5*np.ones((net.learning_net.Delay.ensembles[n].n_neurons, 1))) for n in range(n_action)]
     
-        [nengo.Connection(net.learning_net.Mod[n], net.LearningConnections[n].learning_rule, synapse=tau_long) for n in range(n_action)]
+#        [nengo.Connection(net.learning_net.Mod[n], net.LearningConnections[n].learning_rule, synapse=tau_long) for n in range(n_action)]
+        
+        for action in range(n_action):
+                [nengo.Connection(net.learning_net.Mod[action], net.LearningConnections2[action][state].learning_rule, synapse=tau_long) for state in range(n_dim)]
+        
         [nengo.Connection(net.learning_net.InhibitAllTraining, net.errorA_net.Error.ensembles[n].neurons, 
                       transform=-10*np.ones((net.errorA_net.Error.ensembles[n].n_neurons, 1))) for n in range(len(net.errorA_net.Error.ensembles))]
         return net

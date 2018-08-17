@@ -12,6 +12,6 @@ a_scanTrack:
 - -6
 - -4
 - -2
-f_decay_factor: 400
+f_decay_factor: 1000
 f_epsilon_init: 0.45
-f_learning_rate: 0.005
+f_learning_rate: 0.01

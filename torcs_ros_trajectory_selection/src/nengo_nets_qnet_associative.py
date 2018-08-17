@@ -36,7 +36,7 @@ def qnet_associative(b_Direct, signal, i_reward, i_time, i_epsilon, i_inhibit, i
             #create learning net (for associative learning)                             
             #                             (Error ----> Delay ----> Only learn in Time Window ---x learning_rule)
             # One hot encoding ...inhibit...^                                               
-            net = create_learning_net(net, i_time, i_inhibit, i_trainingProbe, i_errorScale, n_action, q_radius, tau_mid, tau_long);
+            net = create_learning_net(net, i_time, i_inhibit, i_trainingProbe, i_errorScale, n_action, len(signal), q_radius, tau_mid, tau_long);
 
         #        net.Hard = nengo.Node(output=1)
 #        nengo.Connection(net.Hard, net.ActionSelection[2], transform=-1) #add value to number 1 to increase 

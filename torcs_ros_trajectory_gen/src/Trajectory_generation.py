@@ -31,7 +31,7 @@ def EgoTrajectories(f_lateralDist, f_longitudinalDist, n_amount, b_verbose):
     Traj_Quad = []
     
     
-    for s1 in np.linspace(-float(f_lateralDist)/2.5, float(f_lateralDist)/2.5, n_amount):
+    for s1 in np.linspace(-float(f_lateralDist)/3, float(f_lateralDist)/3, n_amount):
         x = [0, f_longitudinalDist]
         y = [0, s1]
         f = scipy.interpolate.CubicSpline(x,y, bc_type='clamped')
