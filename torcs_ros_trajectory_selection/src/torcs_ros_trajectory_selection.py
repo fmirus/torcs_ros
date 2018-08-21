@@ -97,7 +97,7 @@ class TrajectorySelector():
         self.training_logger = NodeLogTraining(self.sim_dt)
         self.q_net_ass = snn.qnet_associative(False, signal=self.state_inputer, i_reward=self.reward_inputer, i_time=self.time_inputer,
                                               i_epsilon=self.epsilon_inputer, i_inhibit=self.inhibit_inputer, i_output=self.output_prober.ProbeFunc, 
-                                              i_trainingProbe = self.training_logger, i_errorScale= self.errorScale_inputer, n_action= self.param_n_action,
+                                              i_trainingProbe = self.training_logger, i_errorScale= self.errorScale_inputer, n_action= self.param_n_action, sim_dt = self.sim_dt,
                                               f_learningRate=self.f_learning_rate) #construct nengo net with proper inputs
         nengo.rc.set('progress', 'progress_bar', 'nengo.utils.progress.TerminalProgressBar') #Terminal progress bar for inline
 #        self.sim = nengo.Simulator(self.q_net_ass, progress_bar=True, optimize=True) #optimize trades in build for simulation time
@@ -134,7 +134,7 @@ class TrajectorySelector():
         self.sub_skipTraining = rospy.Subscriber("/torcs_ros/notifications/skipTraining", BoolStamped, self.skipTraining_callback)
         
     def scan_callback(self, msg_scan):
-        self.a_scanTrack = [np.power(np.clip(msg_scan.ranges[idx]/self.param_rangeNormalize, 0, 1), 2) for idx in self.a_selectScanTrack] #normalize values and clip them additionally (clip/normalization has pending change)
+        self.a_scanTrack = [np.clip(msg_scan.ranges[idx]/self.param_rangeNormalize, 0, 1) for idx in self.a_selectScanTrack] #normalize values and clip them additionally (clip/normalization has pending change)
 
     #Checks whether a new trajector is needed
     def needForAction_callback(self, msg_action):
@@ -347,7 +347,8 @@ class TrajectorySelector():
 
 #            self.errorScale_inputer.SetScale(self.f_distCurrent) #XXX
             try:
-                self.sim.run(0.425,  progress_bar = False) #train
+                self.sim.run(0.45,  progress_bar = False) #train
+#                self.sim.run(0.4+self.sim_dt*10,  progress_bar = False) #train
                 self.training_logger.PrintTraining(self.reward, self.idx_next_action)
                 self.pubStamped(self.pub_reward, self.reward, Float32Stamped())
             except:
@@ -450,7 +451,7 @@ class TrajectorySelector():
     def DetermineAndPublishStartingPoint(self):
         msg_startingPoint = Int8Stamped()
         msg_startingPoint.header.stamp = rospy.Time.now()
-        msg_startingPoint.data = int(self.epsilon_inputer.episode) / 50 % 4 #changes value every 50 episodes and cycles through 4 values
+        msg_startingPoint.data = int(self.epsilon_inputer.episode) / 15 % 4 #changes value every 50 episodes and cycles through 4 values
         self.pub_startPoint.publish(msg_startingPoint)
 if __name__ == "__main__":
     rospy.init_node("trajectory_selection")

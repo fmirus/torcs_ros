@@ -171,20 +171,26 @@ def create_learning_net(net, i_time, i_inhibit, i_trainingProbe, i_errorScale, n
                 idx = int(round(x[-1]))
                 return x[idx]
             net.TrainingProbe = nengo.Node(output =i_trainingProbe, size_in=4, size_out=0)
-            nengo.Connection(net.ActionSelection[-1], net.TrainingProbe[0], synapse=0.05) #filter happens between q out and action selection with tau long
             nengo.Connection(net.learning_net.tStart, net.TrainingProbe[1], synapse=None)
             nengo.Connection(net.errorA_net.Reward[-1], net.TrainingProbe[2], synapse=None)
             net.ErrorSelector = nengo.Node(output = func_SelectError, size_in= n_action+1, size_out=1)
-            [nengo.Connection(net.errorA_net.Error.output[n], net.ErrorSelector[n], synapse=tau_long) for n in range(n_action)]
+            [nengo.Connection(net.errorA_net.Error.output[n], net.ErrorSelector[n], synapse=tau_mid) for n in range(n_action)]
             nengo.Connection(net.errorA_net.Reward[-1], net.ErrorSelector[-1])
-            nengo.Connection(net.ErrorSelector, net.TrainingProbe[3], synapse=0.05)
+            net.QSelector = nengo.Node(output = func_SelectError, size_in = n_action+1, size_out = 1)
+            [nengo.Connection(net.QEnsembleArray_Out.output[n], net.QSelector[n], synapse=tau_mid) for n in range(n_action)]
+            nengo.Connection(net.errorA_net.Reward[-1], net.QSelector[-1])            
+            
+            nengo.Connection(net.QSelector, net.TrainingProbe[0], synapse=None) #filter happens between q out and action selection with tau long
+
+
+            nengo.Connection(net.ErrorSelector, net.TrainingProbe[3], synapse=None)
         
         return net
             
 ##Connect learning network to overall network
 def connect_to_learning_net(net, n_action, n_dim, tau_mid, tau_long):
     with net:
-        [nengo.Connection(net.errorA_net.Error.output[n], net.learning_net.LearnAfterT[n], synapse=None) for n in range(n_action)]  #XXX
+        [nengo.Connection(net.errorA_net.Error.output[n], net.learning_net.LearnAfterT[n], synapse=tau_mid) for n in range(n_action)]  #XXX
 
 #        nengo.Connection(net.errorA_net.Error.output, net.learning_net.Delay.input, synapse=tau_mid)#, synapse = tau_long)
 #        [nengo.Connection(net.errorA_net.Reward[n], net.learning_net.Delay.ensembles[n].neurons, 

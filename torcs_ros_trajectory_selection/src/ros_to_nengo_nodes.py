@@ -30,7 +30,6 @@ class NodeInputScan():
     #returns a constant input over the entirety of the simulation dependent on the sensor state when starting the simulation
     def __call__(self, t):
         return self.a_scanTrack
-    
     #Used for debug purposes to ensure object has not been destructed
     def __del__(self):
         print("The msg to nengo object is being destructed")
@@ -146,8 +145,8 @@ class NodeInputEpsilon():
             self.nextVal = -self.nextVal + 0.15
     
     def SetUnsetDeterministic(self):
-        temp = copy.copy(self.epsilon_temp)
-        self.epsilon_temp = copy.copy(self.epsilon_init)
+        temp = copy.deepcopy(self.epsilon_temp)
+        self.epsilon_temp = copy.deepcopy(self.epsilon_init)
         self.epsilon_init = temp
         
     def ForceRandom(self):
@@ -193,14 +192,14 @@ class NodeLogTraining():
     def __init__(self, sim_dt):
         self.QatStart = np.nan #q value at start of training
         self.QatEnd = np.nan #q value at end of simulation
-        self.dt = 0.2 #
+        self.dt = 0.4 #
         self.sim_dt = sim_dt #simulation time step
         self.rewardProbed = np.nan #reward in network
         self.error = np.nan #error sample at start of training
         self.error_end = np.nan #error sample at end of trianing
     def __call__(self, t, x): #x is start time input 
         #sample at start of training (after dt) and limit to small window (uses sim_dt)
-        if(t > x[1]+self.dt and t < x[1]+self.dt+4*self.sim_dt): 
+        if(t >= x[1]+self.dt and t < x[1]+self.dt+self.sim_dt):
             self.error = x[3] #error signal is [3] connected signal in network
             self.QatStart = x[0] #q utility is [0] conencted signal in network
         #sample on every call, last call will result in last value
