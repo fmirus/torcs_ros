@@ -86,8 +86,7 @@ class DataLogger:
 
     #maybe synchronize laser and action callback
     def callback_laser(self, msg_action, msg_laser):
-        self.data['LASER_DATA']['laser'] = [msg_laser.ranges[idx] for idx in range(len(msg_laser.ranges)) 
-            if idx in self.a_selectScanTrack or -idx in self.a_selectScanTrack]
+        self.data['LASER_DATA']['laser'] = [msg_laser.ranges[idx] for idx in self.a_selectScanTrack] 
         self.headerToDict('LASER_DATA', msg_laser.header)
         self.writeData('LASER_DATA')
 #        rospy.Rate(1)
