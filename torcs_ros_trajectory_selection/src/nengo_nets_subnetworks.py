@@ -130,8 +130,8 @@ def create_learning_net(net, i_time, i_inhibit, i_trainingProbe, i_errorScale, n
             def func_afterT(t, x):
                 #x[-1] is start time
                 global bTrain
-#                if (t > x[-1]+0.4 and t < x[-1]+0.4+1.1*sim_dt and bTrain == True): #limits learning to window after 
-                if (t > x[-1]+0.4): #limits learning to window after 
+                if (t > x[-1]+0.4 and t < x[-1]+0.4+1.1*sim_dt and bTrain == True): #limits learning to window after 
+#                if (t > x[-1]+0.4): #limits learning to window after 
                     bTrain = False
                     return x[:-1]
                 else:
@@ -146,18 +146,18 @@ def create_learning_net(net, i_time, i_inhibit, i_trainingProbe, i_errorScale, n
 #                print(retVec)
                 return retVec
                 
-            net.learning_net.Delay = nengo.networks.EnsembleArray(n_neurons = 100, n_ensembles=n_action, ens_dimensions=1, label='Delayed and inhibited error',
-                                                                  intercepts=nengo.dists.Uniform(-1, 1), radius=i_radius) #delays error
+#            net.learning_net.Delay = nengo.networks.EnsembleArray(n_neurons = 100, n_ensembles=n_action, ens_dimensions=1, label='Delayed and inhibited error',
+#                                                                  intercepts=nengo.dists.Uniform(-1, 1), radius=i_radius) #delays error
             net.learning_net.tStart = nengo.Node(output=i_time, size_in = None, size_out=1) #current simulation start time
             net.learning_net.LearnAfterT = nengo.Node(output=func_afterT, size_in = n_action+1, size_out = n_action) #only outputs error after X seconds
     
-            [nengo.Connection(net.learning_net.Delay.output[n], net.learning_net.LearnAfterT[n], synapse=None) for n in range(n_action)] 
+#            [nengo.Connection(net.learning_net.Delay.output[n], net.learning_net.LearnAfterT[n], synapse=None) for n in range(n_action)] 
             nengo.Connection(net.learning_net.tStart, net.learning_net.LearnAfterT[-1], synapse=None) #achieve ideal gating for learning
     
             net.learning_net.InhibitAllTraining = nengo.Node(output=i_inhibit, size_in=None, size_out=1) #node for training inhibition
-            [nengo.Connection(net.learning_net.InhibitAllTraining, net.learning_net.Delay.ensembles[n].neurons, 
-                              transform=-10*np.ones((net.learning_net.Delay.ensembles[n].n_neurons, 1))) for n in range(len(net.learning_net.Delay.ensembles))]
-            
+#            [nengo.Connection(net.learning_net.InhibitAllTraining, net.learning_net.Delay.ensembles[n].neurons, 
+#                              transform=-10*np.ones((net.learning_net.Delay.ensembles[n].n_neurons, 1))) for n in range(len(net.learning_net.Delay.ensembles))]
+#            
             net.learning_net.Scale = nengo.Node(output=i_errorScale, size_in = None, size_out = 1) #input node to scale error to implement decaying learning
             net.learning_net.Mod = nengo.Node(output=func_errorScale, size_in=n_action+1, size_out = n_action) #passthrough node to modulate error by decaying learning
             nengo.Connection(net.learning_net.Scale, net.learning_net.Mod[-1], synapse=None)
@@ -184,9 +184,11 @@ def create_learning_net(net, i_time, i_inhibit, i_trainingProbe, i_errorScale, n
 ##Connect learning network to overall network
 def connect_to_learning_net(net, n_action, n_dim, tau_mid, tau_long):
     with net:
-        nengo.Connection(net.errorA_net.Error.output, net.learning_net.Delay.input, synapse=tau_mid)#, synapse = tau_long)
-        [nengo.Connection(net.errorA_net.Reward[n], net.learning_net.Delay.ensembles[n].neurons, 
-                          transform=-5*np.ones((net.learning_net.Delay.ensembles[n].n_neurons, 1))) for n in range(n_action)]
+        [nengo.Connection(net.errorA_net.Error.output[n], net.learning_net.LearnAfterT[n], synapse=None) for n in range(n_action)]  #XXX
+
+#        nengo.Connection(net.errorA_net.Error.output, net.learning_net.Delay.input, synapse=tau_mid)#, synapse = tau_long)
+#        [nengo.Connection(net.errorA_net.Reward[n], net.learning_net.Delay.ensembles[n].neurons, 
+#                          transform=-5*np.ones((net.learning_net.Delay.ensembles[n].n_neurons, 1))) for n in range(n_action)]
     
         [nengo.Connection(net.learning_net.Mod[n], net.LearningConnections[n].learning_rule, synapse=None) for n in range(n_action)] #changed synapse to None
         
