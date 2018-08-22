@@ -20,6 +20,10 @@ add_message_files(
   FILES
   TORCSCtrl.msg
   TORCSSensors.msg
+  BoolStamped.msg
+  Int8Stamped.msg
+  UInt32Stamped.msg
+  Float32Stamped.msg
 )
 
 ## Generate added messages and services with any dependencies listed here
