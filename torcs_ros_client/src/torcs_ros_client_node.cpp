@@ -38,6 +38,7 @@ TORCSROSClient::TORCSROSClient(){
   globalSpeed_ = geometry_msgs::TwistStamped(); //car speed in reference two world frame
   globalPose_ = geometry_msgs::PoseStamped();
   globalRPY_ = geometry_msgs::Vector3Stamped();
+  restart_ = std_msgs::Bool(); //notify other nodes that game is being restarted
 
   torcs_sensors_.wheelSpinVel.resize(4, 0);
 
@@ -61,6 +62,7 @@ TORCSROSClient::TORCSROSClient(){
   focus_pub_ = nh_.advertise<sensor_msgs::LaserScan>("torcs_focus", 1000);
   speed_pub_ = nh_.advertise<geometry_msgs::TwistStamped>("torcs_speed", 1000);
   debug_pub_ = nh_.advertise<std_msgs::String>("udp_string", 1000);
+  restart_pub_ = nh_.advertise<std_msgs::Bool>("notifications/restart_process", 1000);
 
   bool connected = false;
   while(connected == false)
@@ -136,6 +138,7 @@ bool TORCSROSClient::getShutdownClientStatus()
 void TORCSROSClient::ctrlCallback(const torcs_msgs::TORCSCtrl::ConstPtr& msg)
 {
   torcs_ctrl_ = *msg;
+
 }
 
 std::string TORCSROSClient::ctrlMsgToString(){
@@ -387,6 +390,9 @@ void TORCSROSClient::update()
     {
       // d.onRestart();
       ROS_INFO_STREAM("Client Restart");
+      restart_.data = true;
+      restart_pub_.publish(restart_);
+      restart_.data = false;
     }
     /**************************************************
      * Compute The Action to send to the solorace sever
@@ -411,6 +417,12 @@ void TORCSROSClient::update()
       focus_pub_.publish(focus_);
       speed_pub_.publish(speed_);
 
+      if(torcs_ctrl_.meta == 1)
+      {
+        restart_.data = true;
+      }
+      restart_pub_.publish(restart_);
+      restart_.data = false;
       //Broadcast tf:Broadcast
       static tf::TransformBroadcaster broadcast; //broadcast object
       tf::Transform base_link; //car frame in world coordinates
@@ -445,12 +457,15 @@ void TORCSROSClient::update()
     {
       ROS_DEBUG_STREAM("Sending: " << buf_);
     }
+
+
   }
   else
   {
     ROS_WARN_STREAM("** Server did not respond in 1 second");
   }
   ROS_DEBUG("End update");
+
 }
 
 void TORCSROSClient::getParams()
