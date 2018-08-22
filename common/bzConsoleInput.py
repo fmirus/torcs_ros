@@ -12,6 +12,7 @@ import os
 import datetime
 
 
+#Enum object for user input encoding
 class eUserIn(Enum):
     true = 1
     false = 0
@@ -19,11 +20,13 @@ class eUserIn(Enum):
     default = -2
     invalid = -3
 
+#Class for user input interaction
 class cUserIn:
     def __init__(self, directory):
-        self.directory = directory
-        self.GetUserInput();
+        self.directory = directory #initialize directory
+        self.GetUserInput(); #Get user input
         
+    #String to enum conversion
     def CastToEnum(self,i_chIn):
         if (i_chIn == 'y' or i_chIn == 'Y'):
             return eUserIn.true
@@ -34,20 +37,23 @@ class cUserIn:
         else:
             return eUserIn.invalid
         
+    #Check for valid range of conversion
     def CheckIntValid(self,i_nIn):
         if (i_nIn.value > 1 or i_nIn.value < -2):
             return False
         else:
             return True
     
+    #Get user input from console for a variable
+    #Mark words that are in the *argv variables for user 
     def GetInput(self,message, input_type, bSkipAll, *argv):
-        
+        #Edit string to mark words noted in *argv
         for arg in argv:
             if arg in message:
-                loc = message.find(arg)
-                message = message[:loc] + "\033[96m" + message[loc:loc+len(arg)] + "\033[0m" + message[loc+len(arg):]
-        if(not bSkipAll):
-            bInputValid = False
+                loc = message.find(arg)#find location of word
+                message = message[:loc] + "\033[96m" + message[loc:loc+len(arg)] + "\033[0m" + message[loc+len(arg):] #color it blue with escape sequence
+        if(not bSkipAll): #check whether previous user input was to skip rest
+            bInputValid = False #Repeat until user enters valid 
             while(bInputValid == False):
                 chUserIn = input_type(message + " (y)es/(n)o/(s)kip rest \033[0m\n")
                 eUser = self.CastToEnum(chUserIn)

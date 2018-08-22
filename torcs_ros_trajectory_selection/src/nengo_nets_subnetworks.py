@@ -178,7 +178,7 @@ def create_learning_net(net, i_time, i_inhibit, i_trainingProbe, i_errorScale, n
                 idx = np.argmin(x[n_action:])
 #                print(x[n_action:])
 #                idx = int(round(x[-1]))
-#                print(idx)
+#                print(idn_action-x)
                 return x[idx]
             net.TrainingProbe = nengo.Node(output =i_trainingProbe, size_in=4, size_out=0)
             nengo.Connection(net.learning_net.tStart, net.TrainingProbe[1], synapse=None)

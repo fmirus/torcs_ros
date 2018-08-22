@@ -35,31 +35,16 @@ def EgoTrajectories(f_lateralDist, f_longitudinalDist, n_amount, b_verbose):
         x = [0, f_longitudinalDist]
         y = [0, s1]
         f = scipy.interpolate.CubicSpline(x,y, bc_type='clamped')
-        ynew1 = [f(x) if abs(f(x))<= 1 else np.sign(f(x))*1 for x in xnew]
-#        plt.plot(f(xnew), xnew)
         Traj_Cubic.append(f(xnew))
 
     for s1 in np.linspace(-float(f_lateralDist)/2, float(f_lateralDist)/2, n_amount+2):
         x = [0, float(f_longitudinalDist)/2+float(f_longitudinalDist)/10, f_longitudinalDist]
         y = [0, s1/2, s1]
         f = scipy.interpolate.interp1d(x, y, kind='quadratic')
-        ynew2 = [f(x) if abs(f(x))<= 1 else np.sign(f(x))*1 for x in xnew]
-#        plt.plot(f(xnew), xnew)
         Traj_Quad.append(f(xnew))
     
     if b_verbose is True:
-    
-#        [plt.plot(trajectory, xnew, c='r', alpha=0.8) for trajectory in Traj_Cubic]
-#
-#        plt.plot(Traj_Cubic[0], xnew, c='r', alpha=0.8, label = 'cubic clamped')
-#        [plt.plot(trajectory, xnew, c='b', alpha=0.5) for trajectory in Traj_Quad]
-#        plt.plot(Traj_Quad[0], xnew, c='b', alpha=0.8, label = 'quadratic')
-#        plt.plot(len(xnew)*[0], xnew, c='g', label='linear')
-#        plt.legend(loc='best')
-#        plt.title('EgoTrajectories - All')
-#        plt.xlabel('[m]')
-#        plt.ylabel('[m]')
-#        plt.show()
+
 
         n_counter = 1
         fig = plt.figure()
@@ -83,11 +68,6 @@ def EgoTrajectories(f_lateralDist, f_longitudinalDist, n_amount, b_verbose):
 #        plt.gca().invert_xaxis()
         plt.show()
 
-
-#    debug = np.ndarray((1, len(xnew)))
-#    a = np.linspace(0, 7.15, len(xnew))
-#    debug[0] = a
-#    return [xnew,  np.concatenate((debug, Traj_Cubic, Traj_Quad), axis=0)] #first parameter is default option
 
     return [xnew, np.concatenate((np.zeros((1,len(xnew))), Traj_Cubic, Traj_Quad), axis=0)] #first parameter is default option
 

@@ -200,7 +200,7 @@ class NodeLogTraining():
         self.error_end = np.nan #error sample at end of trianing
     def __call__(self, t, x): #x is start time input 
         #sample at start of training (after dt) and limit to small window (uses sim_dt)
-        if(t >= x[1]+self.dt and t < x[1]+self.dt+self.sim_dt):
+        if(t >= x[1]+self.dt and t < x[1]+self.dt+1.1*self.sim_dt):
             self.error = x[3] #error signal is [3] connected signal in network
             self.QatStart = x[0] #q utility is [0] conencted signal in network
         #sample on every call, last call will result in last value

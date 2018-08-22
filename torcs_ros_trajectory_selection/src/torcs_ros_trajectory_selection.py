@@ -283,18 +283,21 @@ class TrajectorySelector():
                 self.b_hasBeenTrained = False
 
         else:
-            self.b_hasBeenTrained = False #game has been restart, flag can be reset therefore
+            self.b_hasBeenTrained = False #game has been restarted, flag can be reset therefore
         
+    #Check for manual network save callback
     def save_callback(self, msg_save):
         self.saveNengoParams() #saves nengo parameters when something is published to this topic
         
+    #Check for a manual deterministic callback
+    #Sets epsilon to 0 or back to previous value when received
     def deterministic_callback(self, msg_det):  
         print("\033[96mChange from epsilon greedy to deterministic or vice versa received \033[0m")
         self.epsilon_inputer.SetUnsetDeterministic()
     
-    
+    #Check for a manual inhibition callback.
     def inhibit_callback(self, msg_inhibit):
-        self.inhibit_inputer.SwitchInhibit();
+        self.inhibit_inputer.SwitchInhibit(); #Switch between states
         print("\033[96mInhibition of learning network changed to: " + str(self.inhibit_inputer.b_DoInhibit) +  "\033[0m")
         
         
@@ -331,8 +334,6 @@ class TrajectorySelector():
         if (self.reward > 5):
             self.reward = np.nan
             
-    def clearMemory(self):
-        pass
     
     def trainOnReward(self):
         self.RewardInProgress = True
@@ -366,7 +367,6 @@ class TrajectorySelector():
             if not os.path.isdir(dir_name): #create directory if it doesnt exist yet
                 os.mkdir(dir_name)
             if ((self.epsilon_inputer.episode-2) == 0): #on first episode
-#                self.determinePrefix(dir_name) #create a unique prefix number for trainings on the same date
                 self.saveDescription() #save a yaml description file including the trainings hyperparameters
             #name file
             path_name = self.directory +  "/"+ self.directory[self.directory.rfind("/")+1:] + "_E-"+ str(int(self.epsilon_inputer.episode)-2)
@@ -397,61 +397,51 @@ class TrajectorySelector():
             yaml.dump(descr, yamlfile, default_flow_style=False)
         
         
-    def determinePrefix(self, directory):
-        self.year = str(self.today.year)[2:]
-        self.month = str(self.today.month)
-        self.day = str(self.today.day)
-        if (self.today.month < 10):
-            self.month = '0' + self.month
-        if (self.today.day < 10):
-            self.day = '0' + self.day
-            
-        path_name = directory + "/D-" + self.year + "-" + self.month + "-" + str(self.day) + "P-0"
-        while(os.path.isdir(path_name)):
-            path_name = path_name[:-1] + str(int(path_name[-1]) +1)
-#        path_name += string
-        os.mkdir(path_name)
-        self.directory = path_name
-        
-        
+    #Load SNN from weights path
     def nengoLoadNet(self):
-        if (self.nengo_load):
-            print("\033[96mLoading nengo parameters as defined in config from: " + self.nengo_path + "\033[0m")
-            self.sim.load_params(self.nengo_path)
-            path = self.nengo_path
+        if (self.nengo_load): #check whether load flag is set
+            print("\033[96mLoading nengo parameters as defined in config from: " + self.nengo_path + "\033[0m") #Print path to console
+            self.sim.load_params(self.nengo_path) #load parameters with nengo_dl checkpoint system
+            path = self.nengo_path 
+            #Get last episode from the episode name in the file name
             episode = ''
             while(path[-1] >= '0' and path[-1] <= '9'):
                 episode = path[-1] + episode
                 path = path[:-1]
             self.epsilon_inputer.episode = int(episode) + 2
-            self.epsilon_inputer.CalcEpsilon()
-            self.errorScale_inputer.nNumber = float(int(episode) + 2.0)
+            self.epsilon_inputer.CalcEpsilon() #set epsilon value dependent on episode
+            self.errorScale_inputer.nNumber = float(int(episode) + 2.0) #set scale value dependent on epiode
 
+    #Load training parameters from file
     def nengoLoadParam(self):
-        if(self.nengo_load):
-            path = self.nengo_path[:self.nengo_path.rfind("/")+1]
+        if(self.nengo_load): #check whether load flag is set
+            path = self.nengo_path[:self.nengo_path.rfind("/")+1] #get directory path from file path
+            #get Description file from directory
             files = os.listdir(path)
             fileDesc = [fileT for fileT in files if "Description.yaml" in fileT]
             fileDesc = fileDesc[0]
-            
-            [self.f_epsilon_init, self.f_decay, self.f_learning_rate, self.a_selectScanTrack] = readsavedNengoHyperparams(path +"/" +fileDesc)
-              
+            #overwrite current training parameters with the relevant ones from the yaml descripition
+            [self.f_epsilon_init, self.f_decay, self.f_learning_rate, self.a_selectScanTrack] = readsavedNengoHyperparams(path +"/" +fileDesc)  
+    
+    #Publish a message with the current timestamp as header
     def pubStamped(self, publisher, data, msg):
         msg.header.stamp = rospy.Time.now()
         msg.data = data
         publisher.publish(msg)
             
-        
+    #Generic Bool Message Publish used to notify other nodes of an event occuring
+    #Repeatedly sends message to avoid data chocking
     def Notify(self, topic):
         pubInputReceived = rospy.Publisher(topic, Bool, queue_size=1)
         for n in range(10):
             pubInputReceived.publish(Bool())
             rospy.sleep(0.5)
             
+    #Publish starting point dependent on current episode (stored in epsilon inputter object)
     def DetermineAndPublishStartingPoint(self):
-        msg_startingPoint = Int8Stamped()
+        msg_startingPoint = Int8Stamped() 
         msg_startingPoint.header.stamp = rospy.Time.now()
-        msg_startingPoint.data = int(self.epsilon_inputer.episode) / 15 % 4 #changes value every 50 episodes and cycles through 4 values
+        msg_startingPoint.data = int(self.epsilon_inputer.episode) / 15 % 4 #changes value every 15 episodes and cycles through 4 values
         self.pub_startPoint.publish(msg_startingPoint)
 if __name__ == "__main__":
     rospy.init_node("trajectory_selection")

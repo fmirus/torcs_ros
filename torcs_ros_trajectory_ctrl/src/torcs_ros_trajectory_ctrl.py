@@ -134,28 +134,28 @@ class FollowTrajectory():
            
     #calculate and publish control commands
     def calculate_ctrl_commands(self):
-        msg_skip = BoolStamped()
-        if (self.sen_speedX < 30 or self.bClassic == True):
-            self.rpm_th = 5500
-            self.accel_th = 0.8
-#            self.ControlClassic();
+        msg_skip = BoolStamped() #message used to indicate that nengo should not train as it would create an error
+        if (self.sen_speedX < 30 or self.bClassic == True): #if the speed is too slow or the starting point has not been reached
+            self.rpm_th = 5500 #rpm threshold set high
+            self.accel_th = 0.8 #accel set high
             self.trajectory = Path() #reset as empty
-            self.trajectory.poses = []
+            self.trajectory.poses = [] #ensure poses are empty
             
-            self.NotifySaveDontSave(True)
+            self.NotifySaveDontSave(True) #Notify datalogger that current data is not relevant to training procedure
 
-            if (self.sen_distance > self.startDistance-35 and self.sen_distance < self.startDistance + 100):
-                self.rpm_th = 4000
-                self.accel_th = 0.2
-                if (self.sen_speedX > 40):
-                    self.ctrl_brake = 1
+            # If the vehicle is close to the starting point       
+            if (self.sen_distance > self.startDistance-35 and self.sen_distance < self.startDistance + 100): 
+                self.rpm_th = 4000 #reduce rpm threshold
+                self.accel_th = 0.2 #set accel to low
+                if (self.sen_speedX > 40): #reduce speed if speed is higher than desired
+                    self.ctrl_brake = 1 
                     self.ctrl_accel = 0  
                 else:
-                    self.ctrl_brake = 0
-
+                    self.ctrl_brake = 0 #ensure brake value is reset to not being engaged
+            #change back to neuromorphic controller if starting point has been passed
             if (self.sen_distance > self.startDistance and self.sen_distance < self.startDistance + 100):
                 self.bClassic = False
-            self.ControlClassic();
+            self.ControlClassic(); #call classic controller
 
         elif (len(self.trajectory.poses) > 0): #ensure this callback does not happen before the first trajectory has been published
             self.NotifySaveDontSave(False)
@@ -165,8 +165,8 @@ class FollowTrajectory():
             f_deltaHeading = self.ComputeAngleDifference(self.ros_rot, self.trajectory_rot) #difference in desired orientation to current baselink orientation
                 
             self.ctrl_steering = (f_deltaHeading + f_distToTraj*self.param_kappa)/self.param_steerLock
-            self.RPMandAccel();
-            self.PublishCtrlMessage();
+            self.RPMandAccel(); #set accel value
+            self.PublishCtrlMessage(); #publish control message
 
             
             msg_skip.header.stamp = rospy.Time.now()
@@ -177,12 +177,12 @@ class FollowTrajectory():
                 else:
                     print("\033[31m Oh oh. Restart and end of trajectory collision. Not running nengo \033[0m")
                     self.needForAction_msg.data = False
-                    msg_skip.data = True
+                    msg_skip.data = True #Next training should be skipped as nengo will fail. Featurenot always working yet.
                     
-            self.pub_skipTraining.publish(msg_skip)
+            self.pub_skipTraining.publish(msg_skip) #publish skip training message
             self.needForAction_msg.header.stamp = rospy.Time.now()
             self.pub_needTrajectory.publish(self.needForAction_msg) #send message whether new control is needed or not
-            self.pub_ctrl.publish(self.msg_ctrl)            
+            self.pub_ctrl.publish(self.msg_ctrl) #publish control message            
             self.CheckForOutOfTrack() #restart server if vehicle is of track
 
         else: #no trajectory message has been received yet
@@ -197,7 +197,6 @@ class FollowTrajectory():
          
     def RPMandAccel(self):
          #limit acceleration signal to achieve low constant speeds
-         # was 4000
          if (self.sen_rpm < self.rpm_th or self.sen_gear == 0): #allow high enough rpm if car is in neutral gear (start of race)
             self.ctrl_accel = self.accel_th
          else:
@@ -246,10 +245,12 @@ class FollowTrajectory():
         self.PointToDistanceLookUp(msg_startingPoint.data)
         self.bClassic = True
         
+    #Get message that declares at which point the training should commence
+    #Points of intereset are track dependent (currently 4 Points used)
     def PointToDistanceLookUp(self, nPoint):
-#        randInt = np.random.randint(0, 200)
-        randInt = 0
-        if(nPoint == 0):
+#        randInt = np.random.randint(0, 200) #value used to randomly adjust starting point
+        randInt = 0 #currently set to 0
+        if(nPoint == 0): 
             self.startDistance = 350 + randInt
         elif(nPoint == 1):
             self.startDistance = 600 + randInt
