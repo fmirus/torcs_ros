@@ -150,6 +150,7 @@ class NodeInputEpsilon():
         self.epsilon_init = temp
         
     def ForceRandom(self):
+#        pass
         self.b_NextIsRandom = True
 
     def CalcEpsilon(self):

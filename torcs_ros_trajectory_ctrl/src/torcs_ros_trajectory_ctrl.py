@@ -144,7 +144,7 @@ class FollowTrajectory():
             
             self.NotifySaveDontSave(True)
 
-            if (self.sen_distance > self.startDistance-25 and self.sen_distance < self.startDistance + 100):
+            if (self.sen_distance > self.startDistance-35 and self.sen_distance < self.startDistance + 100):
                 self.rpm_th = 4000
                 self.accel_th = 0.2
                 if (self.sen_speedX > 40):
@@ -247,16 +247,18 @@ class FollowTrajectory():
         self.bClassic = True
         
     def PointToDistanceLookUp(self, nPoint):
+#        randInt = np.random.randint(0, 200)
+        randInt = 0
         if(nPoint == 0):
-            self.startDistance = 830
+            self.startDistance = 350 + randInt
         elif(nPoint == 1):
-            self.startDistance = 220
+            self.startDistance = 600 + randInt
         elif (nPoint == 2):
-            self.startDistance = 50
+            self.startDistance = 20 + randInt
         else:
-            self.startDistance = 550
+            self.startDistance = 900 + randInt
         if(self.nStartingPointPrev != nPoint):
-            print("\033[96mSetting start point for next episodes to " + str(self.startDistance) + " m from start line \033[0m")
+            print("\033[96mSetting start point for next episodes to " + str(self.startDistance-randInt) + " m + X from start line \033[0m")
         self.nStartingPointPrev = nPoint
         
     def NotifySaveDontSave(self, bVal):

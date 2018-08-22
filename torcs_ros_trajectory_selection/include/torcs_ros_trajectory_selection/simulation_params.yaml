@@ -1,6 +1,9 @@
 a_scanTrack:
+- 0
 - 1
+- 2
 - 3
+- 4
 - 5
 - 6
 - 7
@@ -10,8 +13,11 @@ a_scanTrack:
 - -8
 - -7
 - -6
+- -5
 - -4
+- -3
 - -2
-f_decay_factor: 1000
-f_epsilon_init: 0.45
-f_learning_rate: 0.01
+- -1
+f_decay_factor: 300
+f_epsilon_init: 0.35
+f_learning_rate: 0.2

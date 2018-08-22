@@ -31,7 +31,7 @@ def EgoTrajectories(f_lateralDist, f_longitudinalDist, n_amount, b_verbose):
     Traj_Quad = []
     
     
-    for s1 in np.linspace(-float(f_lateralDist)/3, float(f_lateralDist)/3, n_amount):
+    for s1 in np.linspace(-float(f_lateralDist)/2.5, float(f_lateralDist)/2.5, n_amount):
         x = [0, f_longitudinalDist]
         y = [0, s1]
         f = scipy.interpolate.CubicSpline(x,y, bc_type='clamped')
@@ -62,6 +62,7 @@ def EgoTrajectories(f_lateralDist, f_longitudinalDist, n_amount, b_verbose):
 #        plt.show()
 
         n_counter = 1
+        fig = plt.figure()
         plt.plot(len(xnew)*[0], xnew, c='g', label='Straight')
         plt.plot(Traj_Cubic[0], xnew, c='c', label = 'Lane change')
         plt.plot(Traj_Quad[0], xnew, c='m', label = 'Orientation adjustion')
@@ -77,6 +78,7 @@ def EgoTrajectories(f_lateralDist, f_longitudinalDist, n_amount, b_verbose):
         plt.title('Exemplary trajectories')
         plt.xlabel('[m]')
         plt.ylabel('[m]')
+#        fig.savefig('/home/bzorn/trajectory.pdf')
 #        plt.xlim((-9, 6))
 #        plt.gca().invert_xaxis()
         plt.show()
@@ -117,5 +119,5 @@ def ComputeHeadingsInRad(xvals, yvals):
 #CompareSecondOrderPolynomials()
 #CompareThirdOrderPolynomials()
 #
-#f_lateralDist, f_longitudinalDist, n_amount, b_verbose = 15, 20, 4, True
+#f_lateralDist, f_longitudinalDist, n_amount, b_verbose = 15, 20, 6, True
 #a, b = EgoTrajectories(f_lateralDist, f_longitudinalDist, n_amount, b_verbose)

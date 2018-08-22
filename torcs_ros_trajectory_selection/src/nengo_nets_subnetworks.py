@@ -111,8 +111,8 @@ def create_error_net_associative(net, i_reward, n_action, param_neuron, i_radius
     with net:
         with nengo.Network(label='Error network') as net.errorA_net:
             net.errorA_net.Reward = nengo.Node(output=i_reward, size_in=None, size_out=n_action+1) #reward input node
-            net.errorA_net.Error = nengo.networks.EnsembleArray(n_neurons = 100, n_ensembles= n_action, ens_dimensions=1, label='Error calculation',
-                                                         neuron_type=param_neuron, radius=i_radius, intercepts=nengo.dists.Uniform(-1, 1))
+            net.errorA_net.Error = nengo.networks.EnsembleArray(n_neurons = 150, n_ensembles= n_action, ens_dimensions=1, label='Error calculation',
+                                                         neuron_type=param_neuron, radius=1.5*i_radius, intercepts=nengo.dists.Uniform(-1, 1))
             [nengo.Connection(net.errorA_net.Reward[-1], net.errorA_net.Error.input[n], transform=-1) for n in range(n_action)] #connect reward to each error ensemble
 
             
@@ -142,8 +142,15 @@ def create_learning_net(net, i_time, i_inhibit, i_trainingProbe, i_errorScale, n
                 retVec = [x[n]*x[-1] for n in range(n_action)]
                 printVec = [True for n in range(n_action) if abs(retVec[n]) > 0.001]
                 if(np.array(printVec).any() == True):
-                    print("Train")
+                    retVal = [retVec[n] for n in range(n_action) if abs(retVec[n]) > 0.001]
+                    print("Error used in training sample: " + str(retVal))
+#                    print(retVec)
+                    validityCheckVec = [True for n in range(n_action) if abs(retVec[n]) > 7] #this validity check is needed to prevent the network from escalating the training on calculation errors
+                    if(np.array(validityCheckVec).any() == True):
+                        retVec = n_action*[0]
+                        print("Network is calculating wrong values. Skipping training.")
 #                print(retVec)
+
                 return retVec
                 
 #            net.learning_net.Delay = nengo.networks.EnsembleArray(n_neurons = 100, n_ensembles=n_action, ens_dimensions=1, label='Delayed and inhibited error',
@@ -168,17 +175,20 @@ def create_learning_net(net, i_time, i_inhibit, i_trainingProbe, i_errorScale, n
         #See if a training prope node has been passed and connect it to the network if it has
         if (i_trainingProbe != None):
             def func_SelectError(t, x):
-                idx = int(round(x[-1]))
+                idx = np.argmin(x[n_action:])
+#                print(x[n_action:])
+#                idx = int(round(x[-1]))
+#                print(idx)
                 return x[idx]
             net.TrainingProbe = nengo.Node(output =i_trainingProbe, size_in=4, size_out=0)
             nengo.Connection(net.learning_net.tStart, net.TrainingProbe[1], synapse=None)
             nengo.Connection(net.errorA_net.Reward[-1], net.TrainingProbe[2], synapse=None)
-            net.ErrorSelector = nengo.Node(output = func_SelectError, size_in= n_action+1, size_out=1)
+            net.ErrorSelector = nengo.Node(output = func_SelectError, size_in= 2*n_action, size_out=1)
             [nengo.Connection(net.errorA_net.Error.output[n], net.ErrorSelector[n], synapse=tau_mid) for n in range(n_action)]
-            nengo.Connection(net.errorA_net.Reward[-1], net.ErrorSelector[-1])
-            net.QSelector = nengo.Node(output = func_SelectError, size_in = n_action+1, size_out = 1)
+            [nengo.Connection(net.errorA_net.Reward[n], net.ErrorSelector[n_action+n], synapse=None) for n in range(n_action)]
+            net.QSelector = nengo.Node(output = func_SelectError, size_in = 2*n_action, size_out = 1)
             [nengo.Connection(net.QEnsembleArray_Out.output[n], net.QSelector[n], synapse=tau_mid) for n in range(n_action)]
-            nengo.Connection(net.errorA_net.Reward[-1], net.QSelector[-1])            
+            [nengo.Connection(net.errorA_net.Reward[n], net.QSelector[n_action+n], synapse=None) for n in range(n_action)]           
             
             nengo.Connection(net.QSelector, net.TrainingProbe[0], synapse=None) #filter happens between q out and action selection with tau long
 
@@ -191,7 +201,8 @@ def create_learning_net(net, i_time, i_inhibit, i_trainingProbe, i_errorScale, n
 def connect_to_learning_net(net, n_action, n_dim, tau_mid, tau_long):
     with net:
         [nengo.Connection(net.errorA_net.Error.output[n], net.learning_net.LearnAfterT[n], synapse=tau_mid) for n in range(n_action)]  #XXX
-
+        [nengo.Connection(net.errorA_net.Reward[n], net.errorA_net.Error.ensembles[n].neurons, 
+                          transform=-5*np.ones((net.errorA_net.Error.ensembles[n].n_neurons, 1))) for n in range(n_action)]
 #        nengo.Connection(net.errorA_net.Error.output, net.learning_net.Delay.input, synapse=tau_mid)#, synapse = tau_long)
 #        [nengo.Connection(net.errorA_net.Reward[n], net.learning_net.Delay.ensembles[n].neurons, 
 #                          transform=-5*np.ones((net.learning_net.Delay.ensembles[n].n_neurons, 1))) for n in range(n_action)]
