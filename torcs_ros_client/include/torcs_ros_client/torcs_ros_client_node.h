@@ -27,6 +27,7 @@ using namespace std;
 #include <ros/ros.h>
 #include <std_msgs/Header.h>
 #include <std_msgs/String.h>
+#include <std_msgs/Bool.h>
 #include <sensor_msgs/LaserScan.h>
 #include <geometry_msgs/TwistStamped.h>
 #include <torcs_msgs/TORCSCtrl.h>
@@ -61,6 +62,7 @@ private:
   geometry_msgs::TwistStamped globalSpeed_; //car speed in reference to world frame
   geometry_msgs::PoseStamped globalPose_; //car pose in reference to world frame 
   geometry_msgs::Vector3Stamped globalRPY_; //roll pitch yaw of car in reference to world frame
+  std_msgs::Bool restart_;
 
   float wheelSpinVel_[4];
   float* track_array_;
@@ -105,6 +107,7 @@ public:
   ros::Publisher globalSpeed_pub_;
   ros::Publisher globalPose_pub_;
   ros::Publisher globalRPY_pub_; //redundant, as information is present in quaternion of pose
+  ros::Publisher restart_pub_;
 
   TORCSROSClient();
   ~TORCSROSClient();
