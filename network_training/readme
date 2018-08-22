@@ -1,5 +1,0 @@
-Synchronized_data_logger: logs all important ros commands into .h5 files when using torcs. Control commands (steering, accel, brake) are not fetched if driven manually (might need adjusting, as the synchronizer waits for data it will not receive. Comment out the unneeded subscribers and adjust callbacks). Saves pictures as strings to save time. 
-Data-Processor: Converts picture strings to arrays. If 'do_manual' is set to true, the control signals will be overwritten by data pulled from the RGB values of the crosshair. This was a last minute change and should be inspected once more.
-Nvidia-model: Used to train network. Takes first X rounds of each map and data with steering signal above a certain treshhold. 
-Doubles data by mirroring it. 
-Please pay attention that only .h5 files are allowed in the training data directory.
