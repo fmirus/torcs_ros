@@ -1,0 +1,7 @@
+# Parameters used in logger class in synchronized_data_logger.py
+
+sleep_rate : 0.2 #variable used to limit data to every x seconds
+extension : "user1" #define user prefix for file name
+sample_buffer : 1 #cache size before storing (currently only "1" debugged)
+evalFactor : 1.5 #factor used for eval
+
